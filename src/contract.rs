@@ -1,4 +1,5 @@
 use crate::misc::RunningState;
+use crate::types::KudosId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen, require, AccountId, PanicOnDefault};
 
@@ -9,6 +10,7 @@ pub struct Contract {
     pub(crate) owner_id: AccountId,
     /// Contract's state, e.g. running, paused
     pub(crate) running_state: RunningState,
+    pub(crate) last_kudos_id: KudosId,
 }
 
 #[near_bindgen]
@@ -19,6 +21,7 @@ impl Contract {
         Self {
             owner_id: owner_id.unwrap_or_else(env::predecessor_account_id),
             running_state: RunningState::Running,
+            last_kudos_id: KudosId::default(),
         }
     }
 }
