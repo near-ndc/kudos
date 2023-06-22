@@ -1,0 +1,13 @@
+[package]
+name = "template-contract"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kirill QQ <zeliondragon@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-sdk = { version = "4.1.1", features = [] }
+near-contract-standards = "4.1.1"
+primitive-types = {version = "0.12.1", default-features = false}
