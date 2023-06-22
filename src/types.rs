@@ -1,6 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::BorshStorageKey;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -20,4 +21,9 @@ impl Default for KudosId {
     fn default() -> Self {
         Self(0.into())
     }
+}
+
+#[derive(BorshStorageKey, BorshSerialize)]
+pub(crate) enum StorageKey {
+    Accounts,
 }

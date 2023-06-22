@@ -1,6 +1,8 @@
+use crate::account::VAccount;
 use crate::misc::RunningState;
-use crate::types::KudosId;
+use crate::types::{KudosId, StorageKey};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::store::LookupMap;
 use near_sdk::{env, near_bindgen, require, AccountId, PanicOnDefault};
 
 #[near_bindgen]
@@ -11,6 +13,8 @@ pub struct Contract {
     /// Contract's state, e.g. running, paused
     pub(crate) running_state: RunningState,
     pub(crate) last_kudos_id: KudosId,
+    /// User versioned accounts data keyed by AccountId
+    pub(crate) accounts: LookupMap<AccountId, VAccount>,
 }
 
 #[near_bindgen]
@@ -22,6 +26,7 @@ impl Contract {
             owner_id: owner_id.unwrap_or_else(env::predecessor_account_id),
             running_state: RunningState::Running,
             last_kudos_id: KudosId::default(),
+            accounts: LookupMap::new(StorageKey::Accounts),
         }
     }
 }
