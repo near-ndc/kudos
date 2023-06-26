@@ -2,6 +2,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::BorshStorageKey;
+use std::fmt::Display;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -20,6 +21,12 @@ impl KudosId {
 impl Default for KudosId {
     fn default() -> Self {
         Self(0.into())
+    }
+}
+
+impl Display for KudosId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0 .0, f)
     }
 }
 

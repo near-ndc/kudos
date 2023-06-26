@@ -1,4 +1,4 @@
-use crate::r#const::{MAX_ACCOUNT_ID_LENGTH, REGISTERED_MAX_ID_LENGTH_ACCOUNT_INITIAL_STORAGE};
+use crate::consts::{MAX_ACCOUNT_ID_LENGTH, REGISTERED_MAX_ID_LENGTH_ACCOUNT_INITIAL_STORAGE};
 use near_contract_standards::storage_management::StorageBalance;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;

@@ -12,9 +12,11 @@ pub struct Contract {
     pub(crate) owner_id: AccountId,
     /// Contract's state, e.g. running, paused
     pub(crate) running_state: RunningState,
+    /// Last Kudos unique identifier used to get next incremented unique id
     pub(crate) last_kudos_id: KudosId,
     /// User versioned accounts data keyed by AccountId
     pub(crate) accounts: LookupMap<AccountId, VAccount>,
+    pub(crate) external_db_id: Option<AccountId>,
 }
 
 #[near_bindgen]
@@ -27,7 +29,14 @@ impl Contract {
             running_state: RunningState::Running,
             last_kudos_id: KudosId::default(),
             accounts: LookupMap::new(StorageKey::Accounts),
+            external_db_id: None,
         }
+    }
+
+    pub fn set_external_db(&mut self, external_db_id: AccountId) {
+        self.assert_owner();
+        require!(self.external_db_id == None, "External database already set");
+        self.external_db_id = Some(external_db_id);
     }
 }
 
