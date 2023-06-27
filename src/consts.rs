@@ -43,11 +43,6 @@ pub(crate) const REGISTERED_MAX_ID_LENGTH_ACCOUNT_INITIAL_STORAGE: StorageUsage 
     + ACCOUNT_ID_STORAGE // key as AccountId prefixed with string length
     + VACCOUNT_STORAGE; // borsh serialized VAccount value
 
-#[derive(BorshStorageKey, BorshSerialize)]
-pub(crate) enum StorageKey {
-    Accounts,
-}
-
 pub const DEFAULT_COMMENTARY_TEXT_MAX_LENGTH: u16 = 1024;
 
 pub const DEFAULT_HASHTAG_MAX_LENGTH: u8 = 32;
