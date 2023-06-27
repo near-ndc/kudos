@@ -1,4 +1,5 @@
 use crate::account::VAccount;
+use crate::consts::{DEFAULT_COMMENTARY_TEXT_MAX_LENGTH, DEFAULT_HASHTAG_MAX_LENGTH};
 use crate::misc::RunningState;
 use crate::types::{KudosId, StorageKey};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -17,6 +18,8 @@ pub struct Contract {
     /// User versioned accounts data keyed by AccountId
     pub(crate) accounts: LookupMap<AccountId, VAccount>,
     pub(crate) external_db_id: Option<AccountId>,
+    pub(crate) commentary_text_max_length: u16,
+    pub(crate) hashtag_max_length: u8,
 }
 
 #[near_bindgen]
@@ -30,6 +33,8 @@ impl Contract {
             last_kudos_id: KudosId::default(),
             accounts: LookupMap::new(StorageKey::Accounts),
             external_db_id: None,
+            commentary_text_max_length: DEFAULT_COMMENTARY_TEXT_MAX_LENGTH,
+            hashtag_max_length: DEFAULT_HASHTAG_MAX_LENGTH,
         }
     }
 

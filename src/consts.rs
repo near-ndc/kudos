@@ -47,3 +47,7 @@ pub(crate) const REGISTERED_MAX_ID_LENGTH_ACCOUNT_INITIAL_STORAGE: StorageUsage 
 pub(crate) enum StorageKey {
     Accounts,
 }
+
+pub const DEFAULT_COMMENTARY_TEXT_MAX_LENGTH: u16 = 1024;
+
+pub const DEFAULT_HASHTAG_MAX_LENGTH: u8 = 32;
