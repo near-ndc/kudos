@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::external_db::ext_db;
 use crate::types::KudosId;
 use crate::utils::{
@@ -12,6 +10,12 @@ use near_sdk::{env, near_bindgen, AccountId, Promise, PromiseError, PromiseOrVal
 
 #[near_bindgen]
 impl Contract {
+    #[payable]
+    #[handle_result]
+    pub fn leave_comment(&mut self, receiver_id: AccountId, kudos_id: KudosId, text: String) {
+        todo!()
+    }
+
     #[payable]
     #[handle_result]
     pub fn upvote_kudos(
