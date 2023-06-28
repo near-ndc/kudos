@@ -1,9 +1,8 @@
 mod utils;
 mod workspaces;
 
-use crate::utils::remove_key_from_json;
 use crate::workspaces::{build_contract, gen_user_account, transfer_near};
-use kudos_contract::utils::build_verify_kudos_id_request;
+use kudos_contract::utils::{build_verify_kudos_id_request, remove_key_from_json};
 use kudos_contract::KudosId;
 use near_sdk::{serde_json::json, AccountId, ONE_NEAR};
 use near_units::parse_near;
@@ -130,6 +129,39 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .to_string();
     assert_eq!(upvotes_json, format!(r#"{{"{}":""}}"#, user3_account.id()));
+
+    // User3 leaves a comment to kudos given to User2 by User1
+    let _ = user3_account
+        .call(kudos_contract.id(), "leave_comment")
+        .args_json(json!({
+            "receiver_id": user2_account.id(),
+            "kudos_id": kudos_id,
+            "text": "amazing",
+        }))
+        .max_gas()
+        .deposit(ONE_NEAR)
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Verify comment left for kudos on NEAR Social-DB contract
+    let mut kudos_data: near_sdk::serde_json::Value = user2_account
+        .view(&near_social_id, "get")
+        .args_json(json!({
+            "keys": [format!("{kudos_root_prefix}/comments/**")]
+        }))
+        .await?
+        .json()?;
+
+    // remove `/comments` nested key and check for it's value, which should contain User3 who left a comment and a text for kudos
+    let upvotes_json =
+        remove_key_from_json(&mut kudos_data, &format!("{kudos_root_prefix}/comments"))
+            .unwrap()
+            .to_string();
+    assert_eq!(
+        upvotes_json,
+        format!(r#"{{"{}":"amazing"}}"#, user3_account.id())
+    );
 
     Ok(())
 }
