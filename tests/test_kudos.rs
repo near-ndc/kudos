@@ -1,10 +1,13 @@
 mod utils;
 mod workspaces;
 
-use crate::workspaces::{build_contract, gen_user_account, transfer_near};
+use crate::utils::{give_kudos, leave_comment, mint_fv_sbt, upvote_kudos, verify_is_human};
+use crate::workspaces::{
+    build_contract, gen_user_account, get_block_timestamp, load_contract, transfer_near,
+};
 use kudos_contract::utils::{build_verify_kudos_id_request, remove_key_from_json};
-use kudos_contract::KudosId;
-use near_sdk::{serde_json::json, AccountId, ONE_NEAR};
+use near_contract_standards::storage_management::StorageBalanceBounds;
+use near_sdk::{serde_json::json, AccountId, ONE_NEAR, ONE_YOCTO};
 use near_units::parse_near;
 
 #[tokio::test]
@@ -12,6 +15,8 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     let worker_mainnet = ::workspaces::mainnet_archival().await?;
     let near_social_id = "social.near".parse()?;
     let worker = ::workspaces::sandbox().await?;
+
+    let admin_account = worker.root_account()?;
 
     // Setup NEAR Social-DB contract
     let near_social = worker
@@ -35,13 +40,54 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         .await?
         .into_result()?;
 
+    // Initialize NDC i-am-human registry contract
+    let iah_registry_id = "registry.i-am-human.near".parse()?;
+    let iah_registry = worker
+        .import_contract(&iah_registry_id, &worker_mainnet)
+        .initial_balance(parse_near!("10000000 N"))
+        .block_height(95_309_837)
+        .transact()
+        .await?;
+    let _ = iah_registry
+        .call("new")
+        .args_json(json!({
+          "authority": admin_account.id(),
+          "iah_issuer": admin_account.id(),
+          "iah_classes": [1]
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    let _ = admin_account
+        .call(&iah_registry_id, "admin_add_sbt_issuer")
+        .args_json(json!({
+          "issuer": admin_account.id()
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
     // Setup NDC Kudos Contract
-    let kudos_contract = build_contract(&worker, "./", "init", json!({})).await?;
+    let kudos_contract = build_contract(
+        &worker,
+        "./",
+        "init",
+        json!({ "iah_registry": iah_registry_id }),
+    )
+    .await?;
+    let balance_bounds: StorageBalanceBounds = near_social
+        .view("storage_balance_bounds")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     let _ = kudos_contract
         .call("set_external_db")
         .args_json(json!({
             "external_db_id": near_social.id()
         }))
+        .deposit(balance_bounds.min.0)
         .max_gas()
         .transact()
         .await?
@@ -57,19 +103,69 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     let user3_account = gen_user_account(&worker, "user3.test.near").await?;
     let _ = transfer_near(&worker, user3_account.id(), parse_near!("50 N")).await?;
 
+    let now_ms = get_block_timestamp(&worker).await? / 1_000_000;
+
+    // Mint FV SBT for users
+    let minted_tokens: Vec<u64> = mint_fv_sbt(
+        &iah_registry_id,
+        &admin_account,
+        user1_account.id(),
+        now_ms,
+        now_ms + 86_400_000,
+    )
+    .await?;
+    assert!(verify_is_human(
+        &iah_registry_id,
+        admin_account.id(),
+        &user1_account,
+        &minted_tokens
+    )
+    .await
+    .is_ok());
+
+    let minted_tokens: Vec<u64> = mint_fv_sbt(
+        &iah_registry_id,
+        &admin_account,
+        user2_account.id(),
+        now_ms,
+        now_ms + 86_400_000,
+    )
+    .await?;
+    assert!(verify_is_human(
+        &iah_registry_id,
+        admin_account.id(),
+        &user2_account,
+        &minted_tokens
+    )
+    .await
+    .is_ok());
+
+    let minted_tokens: Vec<u64> = mint_fv_sbt(
+        &iah_registry_id,
+        &admin_account,
+        user3_account.id(),
+        now_ms,
+        now_ms + 86_400_000,
+    )
+    .await?;
+    assert!(verify_is_human(
+        &iah_registry_id,
+        admin_account.id(),
+        &user3_account,
+        &minted_tokens
+    )
+    .await
+    .is_ok());
+
     // User1 gives kudos to User2
-    let kudos_id: KudosId = user1_account
-        .call(kudos_contract.id(), "give_kudos")
-        .args_json(json!({
-            "receiver_id": user2_account.id(),
-            "text": "blablabla",
-            "hashtags": vec!["hta","htb"]
-        }))
-        .max_gas()
-        .deposit(ONE_NEAR)
-        .transact()
-        .await?
-        .json()?;
+    let kudos_id = give_kudos(
+        kudos_contract.id(),
+        &user1_account,
+        user2_account.id(),
+        "blablabla",
+        vec!["hta", "htb"],
+    )
+    .await?;
 
     let kudos_root_prefix = build_verify_kudos_id_request(
         &AccountId::new_unchecked(kudos_contract.id().to_string()),
@@ -102,17 +198,13 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     );
 
     // User3 upvotes kudos given to User2 by User1
-    let _ = user3_account
-        .call(kudos_contract.id(), "upvote_kudos")
-        .args_json(json!({
-            "receiver_id": user2_account.id(),
-            "kudos_id": kudos_id,
-        }))
-        .max_gas()
-        .deposit(ONE_NEAR)
-        .transact()
-        .await?
-        .into_result()?;
+    let _ = upvote_kudos(
+        kudos_contract.id(),
+        &user3_account,
+        user2_account.id(),
+        &kudos_id,
+    )
+    .await?;
 
     // Verify upvoted kudos on NEAR Social-DB contract
     let mut kudos_data: near_sdk::serde_json::Value = user2_account
@@ -131,18 +223,14 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     assert_eq!(upvotes_json, format!(r#"{{"{}":""}}"#, user3_account.id()));
 
     // User3 leaves a comment to kudos given to User2 by User1
-    let _ = user3_account
-        .call(kudos_contract.id(), "leave_comment")
-        .args_json(json!({
-            "receiver_id": user2_account.id(),
-            "kudos_id": kudos_id,
-            "text": "amazing",
-        }))
-        .max_gas()
-        .deposit(ONE_NEAR)
-        .transact()
-        .await?
-        .into_result()?;
+    let _ = leave_comment(
+        kudos_contract.id(),
+        &user3_account,
+        user2_account.id(),
+        &kudos_id,
+        "amazing",
+    )
+    .await?;
 
     // Verify comment left for kudos on NEAR Social-DB contract
     let mut kudos_data: near_sdk::serde_json::Value = user2_account

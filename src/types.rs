@@ -1,7 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::BorshStorageKey;
+use near_sdk::{AccountId, BorshStorageKey};
 use std::fmt::Display;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -30,7 +30,20 @@ impl Display for KudosId {
     }
 }
 
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SignedAccount {
+    account_id: AccountId,
+    is_human: bool,
+    has_kyc: bool,
+    signature: String,
+}
+
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
     Accounts,
+}
+
+impl SignedAccount {
+    pub async fn verify() {}
 }

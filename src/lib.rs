@@ -4,6 +4,7 @@ mod contract;
 mod external_db;
 mod misc;
 mod public;
+mod registry;
 mod types;
 pub mod utils;
 

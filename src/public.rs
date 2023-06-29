@@ -1,10 +1,12 @@
 use crate::external_db::ext_db;
+use crate::registry::ext_sbtreg;
 use crate::types::KudosId;
 use crate::utils::{
     build_give_kudos_request, build_hashtags, build_leave_comment_request,
     build_upvote_kudos_request, build_verify_kudos_id_request, verify_kudos_id_response,
 };
 use crate::{Contract, ContractExt};
+use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde_json::{self, json, Value};
 use near_sdk::{env, near_bindgen, AccountId, Promise, PromiseError, PromiseOrValue};
 
@@ -18,8 +20,8 @@ impl Contract {
         kudos_id: KudosId,
         text: String,
     ) -> Result<PromiseOrValue<()>, &'static str> {
+        self.assert_contract_running();
         // TODO: check for minimum required deposit
-        // TODO: check if user is a human
 
         let external_db_id = self
             .external_db_id
@@ -32,9 +34,21 @@ impl Contract {
             build_leave_comment_request(&root_id, &sender_id, &receiver_id, &kudos_id, &text)?;
         let verify_req = build_verify_kudos_id_request(&root_id, &receiver_id, &kudos_id);
 
-        Ok(ext_db::ext(external_db_id.clone())
+        Ok(ext_sbtreg::ext(self.iah_registry.clone())
             //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .keys(vec![verify_req.clone()], None)
+            .is_human_call(
+                sender_id,
+                external_db_id.clone(),
+                "keys".to_owned(),
+                Base64VecU8::try_from(
+                    json!({
+                        "keys": [verify_req.clone()],
+                    })
+                    .to_string()
+                    .into_bytes(),
+                )
+                .map_err(|_| "Internal serialization error")?,
+            )
             .then(
                 Self::ext(env::current_account_id()).send_verified_leave_comment_request(
                     external_db_id.clone(),
@@ -52,8 +66,8 @@ impl Contract {
         receiver_id: AccountId,
         kudos_id: KudosId,
     ) -> Result<PromiseOrValue<()>, &'static str> {
+        self.assert_contract_running();
         // TODO: check for minimum required deposit
-        // TODO: check if user is a human
 
         let external_db_id = self
             .external_db_id
@@ -65,9 +79,21 @@ impl Contract {
         let upvote_req = build_upvote_kudos_request(&root_id, &sender_id, &receiver_id, &kudos_id)?;
         let verify_req = build_verify_kudos_id_request(&root_id, &receiver_id, &kudos_id);
 
-        Ok(ext_db::ext(external_db_id.clone())
+        Ok(ext_sbtreg::ext(self.iah_registry.clone())
             //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .keys(vec![verify_req.clone()], None)
+            .is_human_call(
+                sender_id,
+                external_db_id.clone(),
+                "keys".to_owned(),
+                Base64VecU8::try_from(
+                    json!({
+                        "keys": [verify_req.clone()],
+                    })
+                    .to_string()
+                    .into_bytes(),
+                )
+                .map_err(|_| "Internal serialization error")?,
+            )
             .then(
                 Self::ext(env::current_account_id()).send_verified_upvote_request(
                     external_db_id.clone(),
@@ -86,8 +112,8 @@ impl Contract {
         text: String,
         hashtags: Option<Vec<String>>,
     ) -> Result<PromiseOrValue<Result<KudosId, String>>, &'static str> {
+        self.assert_contract_running();
         // TODO: check for minimum required deposit
-        // TODO: check if user is a human
 
         let external_db_id = self
             .external_db_id
@@ -109,10 +135,22 @@ impl Contract {
             &hashtags,
         )?;
 
-        Ok(ext_db::ext(external_db_id.clone())
+        Ok(ext_sbtreg::ext(self.iah_registry.clone())
             .with_attached_deposit(env::attached_deposit())
             //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .set(data)
+            .is_human_call(
+                sender_id,
+                external_db_id.clone(),
+                "set".to_owned(),
+                Base64VecU8::try_from(
+                    json!({
+                        "data": data,
+                    })
+                    .to_string()
+                    .into_bytes(),
+                )
+                .map_err(|_| "Internal serialization error")?,
+            )
             .then(Self::ext(env::current_account_id()).on_kudos_saved(next_kudos_id))
             .into())
     }
@@ -151,8 +189,12 @@ impl Contract {
     ) -> Result<Promise, String> {
         let verify_res = callback_result
             .map_err(|e| format!("SocialDB::keys({verify_req}) call failure: {:?}", e))?;
-        if !verify_kudos_id_response(&verify_req, verify_res) {
-            return Err("Invalid kudos to leave comment".to_owned());
+        if !verify_kudos_id_response(&verify_req, verify_res.clone()) {
+            return Err(format!(
+                "Invalid kudos to leave comment: {:?} ({})",
+                verify_res,
+                env::promise_results_count()
+            ));
         }
 
         Ok(ext_db::ext(external_db_id)

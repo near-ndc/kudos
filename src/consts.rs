@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshSerialize};
-use near_sdk::{BorshStorageKey, StorageUsage};
+use near_sdk::{BorshStorageKey, Gas, StorageUsage};
 
 pub(crate) const U128_STORAGE: StorageUsage = 16;
 pub(crate) const U64_STORAGE: StorageUsage = 8;

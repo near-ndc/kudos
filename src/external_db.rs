@@ -1,6 +1,6 @@
 use near_sdk::serde::Serialize;
 use near_sdk::serde_json::Value;
-use near_sdk::{ext_contract, AccountId, Promise, PromiseOrValue};
+use near_sdk::{ext_contract, AccountId, Promise, PromiseOrValue, PublicKey};
 
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -32,4 +32,11 @@ pub trait DatabaseProvider {
     fn get(&self, keys: Vec<String>, options: Option<GetOptions>) -> PromiseOrValue<Value>;
 
     fn keys(&self, keys: Vec<String>, options: Option<KeysOptions>) -> PromiseOrValue<Value>;
+
+    fn grant_write_permission(
+        &mut self,
+        predecessor_id: Option<AccountId>,
+        public_key: Option<PublicKey>,
+        keys: Vec<String>,
+    ) -> Result<Promise, &'static str>;
 }
