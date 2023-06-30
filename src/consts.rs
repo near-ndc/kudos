@@ -5,13 +5,6 @@ pub(crate) const U128_STORAGE: StorageUsage = 16;
 pub(crate) const U64_STORAGE: StorageUsage = 8;
 pub(crate) const U8_STORAGE: StorageUsage = 1;
 
-/// Max length of account id [64 bytes]
-pub(crate) const MAX_ACCOUNT_ID_LENGTH: StorageUsage = 64;
-
-// Serialized AccountId with maximum id length (len + id) [68 bytes]
-pub(crate) const ACCOUNT_ID_STORAGE: StorageUsage =
-    std::mem::size_of::<u32>() as u64 + MAX_ACCOUNT_ID_LENGTH;
-
 /// Every contract storage key/value entry always uses 40 bytes when stored via `env::storage_write`
 /// - key len as u64,
 /// - key ptr as u64,
@@ -22,27 +15,3 @@ pub(crate) const STORAGE_ENTRY: StorageUsage = 5 * U64_STORAGE;
 
 /// enum::StorageKey size [1 byte]
 const ENUM_STORAGE_KEY: StorageUsage = U8_STORAGE;
-
-/// Current user account struct size
-///
-/// - storage_balance: [U128_STORAGE]
-/// - storage_usage: [U64_STORAGE]
-pub(crate) const ACCOUNT_STORAGE: StorageUsage = U128_STORAGE + U64_STORAGE;
-
-/// Versioned user account size
-///
-/// - enum VAccount [U8_STORAGE]
-/// - current account variant value [ACCOUNT_STORAGE]
-pub(crate) const VACCOUNT_STORAGE: StorageUsage = U8_STORAGE + ACCOUNT_STORAGE;
-
-/// Initial (minimum) storage in bytes used by registered user account with maximum id length (64 symbols)
-///
-/// - `Contract::accounts` (LookupMap<AccountId, VAccount>) entry [STORAGE_ENTRY] + [ENUM_STORAGE_KEY] + [ACCOUNT_ID_STORAGE] + [VACCOUNT_STORAGE]
-pub(crate) const REGISTERED_MAX_ID_LENGTH_ACCOUNT_INITIAL_STORAGE: StorageUsage = STORAGE_ENTRY // a key/value entry storage cost
-    + ENUM_STORAGE_KEY // 1 byte prefix for StorageKey::Accounts enum variant
-    + ACCOUNT_ID_STORAGE // key as AccountId prefixed with string length
-    + VACCOUNT_STORAGE; // borsh serialized VAccount value
-
-pub const DEFAULT_COMMENTARY_TEXT_MAX_LENGTH: u16 = 1024;
-
-pub const DEFAULT_HASHTAG_MAX_LENGTH: u8 = 32;

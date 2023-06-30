@@ -30,20 +30,7 @@ impl Display for KudosId {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct SignedAccount {
-    account_id: AccountId,
-    is_human: bool,
-    has_kyc: bool,
-    signature: String,
-}
-
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
-    Accounts,
-}
-
-impl SignedAccount {
-    pub async fn verify() {}
+    Kudos,
 }

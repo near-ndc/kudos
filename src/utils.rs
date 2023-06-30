@@ -114,6 +114,14 @@ pub fn build_verify_kudos_id_request(
     format!("{root_id}/kudos/{receiver_id}/{kudos_id}")
 }
 
+pub fn build_collect_kudos_upvotes_request(
+    root_id: &AccountId,
+    receiver_id: &AccountId,
+    kudos_id: &KudosId,
+) -> String {
+    format!("{root_id}/kudos/{receiver_id}/{kudos_id}/upvotes/*")
+}
+
 pub fn verify_kudos_id_response(req: &str, mut res: Value) -> bool {
     remove_key_from_json(&mut res, req) == Some(Value::Bool(true))
 }
@@ -133,6 +141,15 @@ pub fn remove_key_from_json(json: &mut Value, key: &str) -> Option<Value> {
     }
 
     None
+}
+
+/// Checks if provided value of type T is equal to T::default()
+pub(crate) fn is_default<T: Default + PartialEq>(t: &T) -> bool {
+    t == &T::default()
+}
+
+pub(crate) fn opt_default<T>() -> Option<T> {
+    Option::<T>::None
 }
 
 #[cfg(test)]

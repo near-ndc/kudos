@@ -1,10 +1,10 @@
-mod account;
 mod consts;
 mod contract;
 mod external_db;
 mod misc;
 mod public;
-mod registry;
+pub mod registry;
+mod settings;
 mod types;
 pub mod utils;
 

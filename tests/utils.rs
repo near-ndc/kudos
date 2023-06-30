@@ -1,4 +1,4 @@
-use kudos_contract::KudosId;
+use kudos_contract::{registry::TokenMetadata, KudosId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -8,17 +8,6 @@ use near_sdk::{test_utils::VMContextBuilder, AccountId, Balance, Gas};
 use near_units::parse_near;
 
 pub const MAX_GAS: Gas = Gas(300_000_000_000_000);
-
-/// TokenMetadata defines attributes for each SBT token.
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct TokenMetadata {
-    pub class: u64,                          // token class
-    pub issued_at: Option<u64>, // When token was issued or minted, Unix epoch in milliseconds
-    pub expires_at: Option<u64>, // When token expires, Unix epoch in milliseconds
-    pub reference: Option<String>, // URL to an off-chain JSON file with more info.
-    pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
-}
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 #[serde(crate = "near_sdk::serde")]

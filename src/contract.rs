@@ -1,10 +1,9 @@
-use crate::account::VAccount;
-use crate::consts::{DEFAULT_COMMENTARY_TEXT_MAX_LENGTH, DEFAULT_HASHTAG_MAX_LENGTH};
 use crate::external_db::ext_db;
 use crate::misc::RunningState;
+use crate::settings::{Settings, SettingsView, VSettings};
 use crate::types::{KudosId, StorageKey};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::store::LookupMap;
+use near_sdk::store::{LookupMap, LookupSet};
 use near_sdk::{
     env, near_bindgen, require, AccountId, PanicOnDefault, Promise, PromiseError, ONE_YOCTO,
 };
@@ -18,12 +17,10 @@ pub struct Contract {
     pub(crate) running_state: RunningState,
     /// Last Kudos unique identifier used to get next incremented unique id
     pub(crate) last_kudos_id: KudosId,
-    /// User versioned accounts data keyed by AccountId
-    pub(crate) accounts: LookupMap<AccountId, VAccount>,
     pub(crate) external_db_id: Option<AccountId>,
-    pub(crate) commentary_text_max_length: u16,
-    pub(crate) hashtag_max_length: u8,
     pub(crate) iah_registry: AccountId,
+    pub(crate) settings: VSettings,
+    pub(crate) exchanged_kudos: LookupSet<KudosId>,
 }
 
 #[near_bindgen]
@@ -35,11 +32,10 @@ impl Contract {
             owner_id: owner_id.unwrap_or_else(env::predecessor_account_id),
             running_state: RunningState::Running,
             last_kudos_id: KudosId::default(),
-            accounts: LookupMap::new(StorageKey::Accounts),
             external_db_id: None,
-            commentary_text_max_length: DEFAULT_COMMENTARY_TEXT_MAX_LENGTH,
-            hashtag_max_length: DEFAULT_HASHTAG_MAX_LENGTH,
             iah_registry,
+            settings: Settings::default().into(),
+            exchanged_kudos: LookupSet::new(StorageKey::Kudos),
         }
     }
 
@@ -66,6 +62,17 @@ impl Contract {
                     .on_ext_db_write_permission_granted(external_db_id),
             )
             .into()
+    }
+
+    pub fn view_settings(&self) -> SettingsView {
+        Settings::from(&self.settings).into()
+    }
+
+    #[payable]
+    pub fn update_settings(&mut self, settings_json: SettingsView) {
+        self.assert_owner();
+
+        self.settings = self.settings.apply_changes(settings_json);
     }
 
     #[private]
@@ -99,5 +106,9 @@ impl Contract {
     /// Checks ifn the caller is an owner of the contract
     pub(crate) fn is_owner(&self, account_id: &AccountId) -> bool {
         account_id == &self.owner_id
+    }
+
+    pub(crate) fn external_db_id(&self) -> Result<&AccountId, &'static str> {
+        self.external_db_id.as_ref().ok_or("External db is not set")
     }
 }
