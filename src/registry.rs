@@ -24,10 +24,5 @@ pub trait ExtSbtRegistry {
         args: Base64VecU8,
     ) -> PromiseOrValue<bool>;
 
-    fn sbt_mint(
-        &mut self,
-        receiver: AccountId,
-        metadata: TokenMetadata,
-        memo: Option<String>,
-    ) -> Promise;
+    fn sbt_mint(&mut self, token_spec: Vec<(AccountId, Vec<TokenMetadata>)>) -> Promise;
 }

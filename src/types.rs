@@ -4,7 +4,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{AccountId, BorshStorageKey};
 use std::fmt::Display;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct KudosId(U64);
 

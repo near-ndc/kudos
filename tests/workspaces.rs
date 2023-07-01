@@ -41,16 +41,7 @@ pub async fn build_contract<T>(
 where
     T: NetworkInfo + NetworkClient + DevNetwork + Send + Sync,
 {
-    let mut wasm;
-    let mut retry_count = 3;
-    // Under some circumstances compilation could provide zero length built wasm. In this case we retry.
-    loop {
-        wasm = workspaces::compile_project(project_path).await?;
-        if !wasm.is_empty() || retry_count == 0 {
-            break;
-        }
-        retry_count -= 1;
-    }
+    let wasm = workspaces::compile_project(project_path).await?;
 
     let (id, sk) = worker.dev_generate().await;
 

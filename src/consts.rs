@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshSerialize};
-use near_sdk::{BorshStorageKey, Gas, StorageUsage};
+use near_sdk::{Balance, BorshStorageKey, Gas, StorageUsage};
 
 pub(crate) const U128_STORAGE: StorageUsage = 16;
 pub(crate) const U64_STORAGE: StorageUsage = 8;
@@ -15,3 +15,7 @@ pub(crate) const STORAGE_ENTRY: StorageUsage = 5 * U64_STORAGE;
 
 /// enum::StorageKey size [1 byte]
 const ENUM_STORAGE_KEY: StorageUsage = U8_STORAGE;
+
+pub const PROOF_OF_KUDOS_SBT_CLASS_ID: u64 = 1;
+
+pub const PROOF_OF_KUDOS_SBT_MINT_COST: Balance = 6_000_000_000_000_000_000_000;

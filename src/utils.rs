@@ -1,3 +1,5 @@
+use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
+use crate::registry::TokenMetadata;
 use crate::types::KudosId;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::AccountId;
@@ -106,24 +108,35 @@ pub fn build_leave_comment_request(
     .map_err(|_| "Internal serialization error")
 }
 
-pub fn build_verify_kudos_id_request(
+pub fn build_get_kudos_by_id_request(
     root_id: &AccountId,
     receiver_id: &AccountId,
     kudos_id: &KudosId,
 ) -> String {
-    format!("{root_id}/kudos/{receiver_id}/{kudos_id}")
+    format!("{root_id}/kudos/{receiver_id}/{kudos_id}/*")
 }
 
-pub fn build_collect_kudos_upvotes_request(
+pub fn build_kudos_upvotes_path(
     root_id: &AccountId,
     receiver_id: &AccountId,
     kudos_id: &KudosId,
 ) -> String {
-    format!("{root_id}/kudos/{receiver_id}/{kudos_id}/upvotes/*")
+    format!("{root_id}/kudos/{receiver_id}/{kudos_id}/upvotes")
 }
 
-pub fn verify_kudos_id_response(req: &str, mut res: Value) -> bool {
-    remove_key_from_json(&mut res, req) == Some(Value::Bool(true))
+pub fn build_pok_sbt_metadata(issued_at: u64, expires_at: u64) -> TokenMetadata {
+    TokenMetadata {
+        class: PROOF_OF_KUDOS_SBT_CLASS_ID,
+        issued_at: Some(issued_at),
+        expires_at: Some(expires_at),
+        reference: None,
+        reference_hash: None,
+    }
+}
+
+pub fn extract_kudos_id_sender_from_response(req: &str, mut res: Value) -> Option<AccountId> {
+    remove_key_from_json(&mut res, &req.replace("*", "sender_id"))
+        .and_then(|val| serde_json::from_value::<AccountId>(val).ok())
 }
 
 pub fn remove_key_from_json(json: &mut Value, key: &str) -> Option<Value> {
@@ -259,55 +272,67 @@ mod tests {
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
         let next_kudos_id = KudosId::default().next();
         assert_eq!(
-            &super::build_verify_kudos_id_request(&root_id, &receiver_id, &next_kudos_id),
-            "kudos.near/kudos/test2.near/1"
+            &super::build_get_kudos_by_id_request(&root_id, &receiver_id, &next_kudos_id),
+            "kudos.near/kudos/test2.near/1/*"
         );
     }
 
     #[test]
     fn test_verify_kudos_id_response() {
         // valid kudos response
-        assert!(super::verify_kudos_id_response(
-            "test.near/kudos/user1.near/1",
+        assert_eq!(
+            super::extract_kudos_id_sender_from_response(
+                "test.near/kudos/user1.near/1/*",
+                json!({
+                    "test.near": {
+                      "kudos": {
+                        "user1.near": {
+                          "1": {
+                            "sender_id": "user2.near"
+                          }
+                        }
+                      }
+                    }
+                })
+            ),
+            Some(AccountId::new_unchecked("user2.near".to_owned()))
+        );
+        // invalid kudos response
+        assert!(super::extract_kudos_id_sender_from_response(
+            "test.near/kudos/user1.near/1/*",
             json!({
                 "test.near": {
                   "kudos": {
                     "user1.near": {
-                      "1": true
+                      "1": {}
                     }
                   }
                 }
             })
-        ));
-        // invalid kudos responses
-        assert!(!super::verify_kudos_id_response(
-            "test.near/kudos/user1.near/1",
-            json!({
-                "test.near": {
-                  "kudos": {
-                    "user1.near": {
-                      "1": false
-                    }
-                  }
-                }
-            })
-        ));
-        assert!(!super::verify_kudos_id_response(
-            "test.near/kudos/user1.near/1",
+        )
+        .is_none());
+        // different kudos root id
+        assert!(super::extract_kudos_id_sender_from_response(
+            "test.near/kudos/user1.near/1/*",
             json!({
                 "test1.near": {
                   "kudos": {
                     "user1.near": {
-                      "1": true
+                      "1": {
+                        "sender_id": "user2.near"
+                      }
                     }
                   }
                 }
             })
-        ));
-        assert!(!super::verify_kudos_id_response(
-            "test.near/kudos/user1.near/1",
+        )
+        .is_none());
+        // no response
+        assert!(super::extract_kudos_id_sender_from_response(
+            "test.near/kudos/user1.near/1/*",
             json!({})
-        ));
+        )
+        .is_none());
     }
 
     #[test]
