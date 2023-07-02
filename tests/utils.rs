@@ -1,34 +1,11 @@
-use kudos_contract::{registry::TokenMetadata, KudosId, PROOF_OF_KUDOS_SBT_CLASS_ID};
+use kudos_contract::registry::{OwnedToken, TokenMetadata};
+use kudos_contract::{KudosId, EXCHANGE_KUDOS_COST};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
-use near_sdk::ONE_NEAR;
-use near_sdk::{test_utils::VMContextBuilder, AccountId, Balance, Gas};
+use near_sdk::{AccountId, ONE_NEAR};
 use near_units::parse_near;
-
-pub const MAX_GAS: Gas = Gas(300_000_000_000_000);
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct OwnedToken {
-    pub token: u64,
-    pub metadata: TokenMetadata,
-}
-
-pub fn build_default_context(
-    predecessor_account_id: AccountId,
-    deposit: Option<Balance>,
-    prepaid_gas: Option<Gas>,
-) -> VMContextBuilder {
-    let mut builder = VMContextBuilder::new();
-    builder
-        .signer_account_id(predecessor_account_id.clone())
-        .predecessor_account_id(predecessor_account_id)
-        .prepaid_gas(prepaid_gas.unwrap_or(MAX_GAS))
-        .attached_deposit(deposit.unwrap_or_default());
-    builder
-}
 
 pub async fn mint_fv_sbt(
     iah_registry_id: &workspaces::AccountId,
@@ -208,7 +185,7 @@ pub async fn exchange_kudos_for_sbt(
         .args_json(json!({
             "kudos_id": kudos_id,
         }))
-        .deposit(ONE_NEAR)
+        .deposit(EXCHANGE_KUDOS_COST)
         .max_gas()
         .transact()
         .await?
@@ -219,10 +196,7 @@ pub async fn exchange_kudos_for_sbt(
             //println!("Result: {res:?}");
             res.json::<Vec<u64>>().map_err(anyhow::Error::msg)
         }
-        Err(e) => Err(anyhow::Error::msg(format!(
-            "Exchange kudos failure. Error: {:?}",
-            e
-        ))),
+        Err(e) => Err(anyhow::Error::msg(format!("Exchange kudos failure: {e:?}"))),
     }
 }
 
@@ -236,6 +210,3 @@ fn compare_slices<T: PartialEq>(sl1: &[T], sl2: &[T]) -> bool {
 
     count == sl1.len() && count == sl2.len()
 }
-
-#[cfg(test)]
-mod tests {}

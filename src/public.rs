@@ -1,4 +1,4 @@
-use crate::consts::PROOF_OF_KUDOS_SBT_MINT_COST;
+use crate::consts::{EXCHANGE_KUDOS_COST, PROOF_OF_KUDOS_SBT_MINT_COST};
 use crate::external_db::ext_db;
 use crate::registry::{ext_sbtreg, TokenMetadata};
 use crate::settings::Settings;
@@ -20,7 +20,11 @@ impl Contract {
         kudos_id: KudosId,
     ) -> Result<PromiseOrValue<Vec<u64>>, &'static str> {
         self.assert_contract_running();
-        // TODO: check for minimum required deposit
+
+        require!(
+            env::attached_deposit() == EXCHANGE_KUDOS_COST,
+            &display_deposit_requirement_in_near(EXCHANGE_KUDOS_COST)
+        );
 
         if self.exchanged_kudos.contains(&kudos_id) {
             return Err("Kudos is already exchanged");
@@ -311,9 +315,8 @@ impl Contract {
                 format!("SocialDB::keys({kudos_upvotes_path}/*) invalid response {result:?}")
             })
             .and_then(|upvotes| {
-                serde_json::from_value::<HashMap<AccountId, bool>>(upvotes.clone()).map_err(|e| {
-                    format!("Failed to parse upvotes data `{upvotes:?}`. Error: {e:?}")
-                })
+                serde_json::from_value::<HashMap<AccountId, bool>>(upvotes.clone())
+                    .map_err(|e| format!("Failed to parse upvotes data `{upvotes:?}`: {e:?}"))
             })?;
 
         let number_of_upvotes = upvoters.keys().len();
@@ -361,6 +364,3 @@ impl Contract {
         PromiseOrValue::Value(minted_tokens_ids)
     }
 }
-
-#[cfg(test)]
-mod tests {}

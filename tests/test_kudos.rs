@@ -6,6 +6,7 @@ use crate::workspaces::{
     build_contract, gen_user_account, get_block_timestamp, load_contract, transfer_near,
 };
 use kudos_contract::utils::*;
+use kudos_contract::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use near_contract_standards::storage_management::StorageBalanceBounds;
 use near_sdk::{serde_json::json, AccountId, ONE_NEAR, ONE_YOCTO};
 use near_units::parse_near;
@@ -392,7 +393,7 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
 
     // User1 exchanges his Kudos for ProofOfKudos SBT
     let tokens_ids = exchange_kudos_for_sbt(kudos_contract.id(), &user1_account, &kudos_id).await?;
-    assert_eq!(tokens_ids, vec![1]);
+    assert_eq!(tokens_ids, vec![PROOF_OF_KUDOS_SBT_CLASS_ID]);
 
     let _ = verify_kudos_sbt_tokens_by_owner(
         &iah_registry_id,

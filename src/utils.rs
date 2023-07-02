@@ -1,8 +1,9 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
 use crate::types::KudosId;
+use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
-use near_sdk::AccountId;
+use near_sdk::{AccountId, Balance};
 
 pub fn build_hashtags(
     receiver_id: &AccountId,
@@ -165,12 +166,18 @@ pub(crate) fn opt_default<T>() -> Option<T> {
     Option::<T>::None
 }
 
+pub(crate) fn display_deposit_requirement_in_near(value: Balance) -> String {
+    format!(
+        "Requires exact amount of attached deposit {} NEAR",
+        (value / STORAGE_PRICE_PER_BYTE) as f64 / 100_000f64
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::remove_key_from_json;
-    use crate::KudosId;
-    use near_sdk::serde_json::{self, json};
-    use near_sdk::AccountId;
+    use super::*;
+    use near_sdk::serde_json::json;
+    use near_units::parse_near;
 
     #[test]
     fn test_build_hashtags() {
@@ -380,5 +387,21 @@ mod tests {
             Some(json!("test4"))
         );
         assert_eq!(json.to_string(), r#"{"abc":"test","test":{"test1":{}}}"#);
+    }
+
+    #[test]
+    fn test_display_deposit_requirement_in_near() {
+        assert_eq!(
+            display_deposit_requirement_in_near(parse_near!("0.0005 NEAR")).as_str(),
+            "Requires exact amount of attached deposit 0.0005 NEAR"
+        );
+        assert_eq!(
+            display_deposit_requirement_in_near(parse_near!("0.00051 NEAR")).as_str(),
+            "Requires exact amount of attached deposit 0.00051 NEAR"
+        );
+        assert_eq!(
+            display_deposit_requirement_in_near(parse_near!("0.000553 NEAR")).as_str(),
+            "Requires exact amount of attached deposit 0.00055 NEAR"
+        );
     }
 }

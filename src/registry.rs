@@ -14,6 +14,13 @@ pub struct TokenMetadata {
     pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
 }
 
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub struct OwnedToken {
+    pub token: u64,
+    pub metadata: TokenMetadata,
+}
+
 #[ext_contract(ext_sbtreg)]
 pub trait ExtSbtRegistry {
     fn is_human_call(
