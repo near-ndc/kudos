@@ -258,13 +258,9 @@ impl Contract {
         let kudos_by_id_res = callback_result
             .map_err(|e| format!("SocialDB::get({get_kudos_by_id_req}) call failure: {:?}", e))?;
 
-        match extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res) {
-            None => return Err("Invalid kudos to leave a comment for".to_owned()),
-            Some(sender_id) if sender_id == env::signer_account_id() => {
-                return Err("User is not eligible to leave a comment for this kudos".to_owned());
-            }
-            Some(_) => (),
-        };
+        if extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res).is_none() {
+            return Err("Invalid kudos to leave a comment for".to_owned());
+        }
 
         Ok(ext_db::ext(external_db_id)
             .with_attached_deposit(env::attached_deposit())
