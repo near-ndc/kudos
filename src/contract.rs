@@ -40,6 +40,12 @@ impl Contract {
     }
 
     #[payable]
+    pub fn update_iah_registry(&mut self, iah_registry: AccountId) {
+        self.assert_owner();
+        self.iah_registry = iah_registry;
+    }
+
+    #[payable]
     pub fn set_external_db(&mut self, external_db_id: AccountId) -> Promise {
         self.assert_owner();
         require!(self.external_db_id == None, "External database already set");
