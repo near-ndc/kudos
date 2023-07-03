@@ -1,5 +1,5 @@
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
-use kudos_contract::{KudosId, EXCHANGE_KUDOS_COST};
+use kudos_contract::{KudosId, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -118,19 +118,23 @@ pub async fn give_kudos(
     text: &str,
     hashtags: Vec<&str>,
 ) -> anyhow::Result<KudosId> {
-    let kudos_id = sender
+    let res = sender
         .call(kudos_contract_id, "give_kudos")
         .args_json(json!({
             "receiver_id": receiver_id,
             "text": text,
             "hashtags": hashtags,
         }))
-        .deposit(ONE_NEAR)
+        .deposit(GIVE_KUDOS_COST)
         .max_gas()
         .transact()
         .await?
-        .json()?;
-    Ok(kudos_id)
+        .into_result();
+
+    match res {
+        Ok(res) => res.json::<KudosId>().map_err(anyhow::Error::msg),
+        Err(e) => Err(anyhow::Error::msg(format!("Give kudos failure: {e:?}"))),
+    }
 }
 
 pub async fn upvote_kudos(

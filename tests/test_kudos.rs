@@ -5,11 +5,13 @@ use crate::utils::*;
 use crate::workspaces::{
     build_contract, gen_user_account, get_block_timestamp, load_contract, transfer_near,
 };
-use kudos_contract::utils::*;
 use kudos_contract::PROOF_OF_KUDOS_SBT_CLASS_ID;
+use kudos_contract::{utils::*, KudosId};
 use near_contract_standards::storage_management::StorageBalanceBounds;
-use near_sdk::{serde_json::json, AccountId, ONE_NEAR, ONE_YOCTO};
+use near_sdk::serde_json::{self, json, Value};
+use near_sdk::{AccountId, ONE_NEAR, ONE_YOCTO};
 use near_units::parse_near;
+use std::collections::BTreeMap;
 
 #[tokio::test]
 async fn test_give_kudos() -> anyhow::Result<()> {
@@ -124,13 +126,70 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     .await
     .is_ok());
 
+    /*
+    // Test deposit BEGIN
+    let balance_1: near_contract_standards::storage_management::StorageBalance = kudos_contract
+        .as_account()
+        .view(near_social.id(), "storage_balance_of")
+        .args_json(json!({"account_id": kudos_contract.id()}))
+        .await?
+        .json()?;
+    println!(
+        "avail: {} total: {}",
+        display_deposit_in_near(balance_1.available.0), display_deposit_in_near(balance_1.total.0)
+    );
+
+    let hashtags = (0..10)
+        .map(|n| format!("{}{n}", "a".repeat(31)))
+        .collect::<Vec<_>>();
+    let kudos_text = "a".repeat(1000);
+    let test1_account =
+        gen_user_account(&worker, &[&"a".repeat(54), ".test.near"].concat()).await?;
+    let _ = transfer_near(&worker, test1_account.id(), parse_near!("10 N")).await?;
+    let test2_account =
+        gen_user_account(&worker, &[&"b".repeat(54), ".test.near"].concat()).await?;
+    let _ = transfer_near(&worker, test2_account.id(), parse_near!("10 N")).await?;
+
+    // Mint FV SBT for users & verify
+    let _ = mint_fv_sbt(
+        &iah_registry_id,
+        &admin_account,
+        &vec![test1_account.id(), test2_account.id()],
+        now_ms,
+        now_ms + 86_400_000,
+    )
+    .await?;
+    let res = give_kudos(
+        kudos_contract.id(),
+        &test1_account,
+        test2_account.id(),
+        &kudos_text,
+        hashtags.iter().map(|s| s.as_str()).collect(),
+    )
+    .await;
+    println!("{res:?}");
+
+    let balance_2: near_contract_standards::storage_management::StorageBalance = kudos_contract
+        .as_account()
+        .view(near_social.id(), "storage_balance_of")
+        .args_json(json!({"account_id": kudos_contract.id()}))
+        .await?
+        .json()?;
+    println!(
+        "avail: {} total: {}",
+        display_deposit_in_near(balance_2.available.0), display_deposit_in_near(balance_2.total.0)
+    );
+    // Test deposit END
+    */
     // User1 gives kudos to User2
+    let hashtags = (0..3).map(|n| format!("ht{n}")).collect::<Vec<_>>();
+    let kudos_text = "blablabla blablabla";
     let kudos_id = give_kudos(
         kudos_contract.id(),
         &user1_account,
         user2_account.id(),
-        "blablabla",
-        vec!["hta", "htb"],
+        &kudos_text,
+        hashtags.iter().map(|s| s.as_str()).collect(),
     )
     .await?;
 
@@ -154,12 +213,20 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         &get_kudos_by_id_req.replace("*", "created_at")
     )
     .is_some());
+    let extracted_hashtags = remove_key_from_json(
+        &mut kudos_data,
+        &format!("{}/hashtags", kudos_contract.id()),
+    )
+    .and_then(|val| serde_json::from_value::<BTreeMap<String, Value>>(val).ok())
+    .map(|map| map.keys().cloned().collect::<Vec<_>>());
+    assert_eq!(extracted_hashtags, Some(hashtags));
+
     // kudos referenced by id and account of User2
-    let kudos_reference = format!(r#"{{"{}":"{}"}}"#, kudos_id, user2_account.id());
+    //let kudos_reference = format!(r#"{{"{}":"{}"}}"#, kudos_id, user2_account.id());
     assert_eq!(
         kudos_data.to_string(),
         format!(
-            r#"{{"{}":{{"hashtags":{{"hta":{kudos_reference},"htb":{kudos_reference}}},"kudos":{{"{}":{{"{kudos_id}":{{"sender_id":"{}","text":"blablabla"}}}}}}}}}}"#,
+            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"sender_id":"{}","text":"{kudos_text}"}}}}}}}}}}"#,
             kudos_contract.id(),
             user2_account.id(),
             user1_account.id()

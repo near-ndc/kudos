@@ -173,6 +173,13 @@ pub(crate) fn display_deposit_requirement_in_near(value: Balance) -> String {
     )
 }
 
+pub fn display_deposit_in_near(value: Balance) -> String {
+    format!(
+        "{} NEAR",
+        (value / STORAGE_PRICE_PER_BYTE) as f64 / 100_000f64
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

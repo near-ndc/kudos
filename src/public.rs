@@ -3,11 +3,13 @@ use crate::external_db::ext_db;
 use crate::registry::{ext_sbtreg, TokenMetadata};
 use crate::settings::Settings;
 use crate::types::KudosId;
-use crate::utils::*;
+use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde_json::{self, json, Value};
-use near_sdk::{env, near_bindgen, require, AccountId, Promise, PromiseError, PromiseOrValue};
+use near_sdk::{
+    env, near_bindgen, require, AccountId, Promise, PromiseError, PromiseOrValue, PromiseResult,
+};
 use std::collections::HashMap;
 
 #[near_bindgen]
@@ -171,7 +173,11 @@ impl Contract {
             receiver_id != sender_id,
             "User is not eligible to upvote this kudos"
         );
-        // TODO: check for minimum required deposit
+
+        require!(
+            env::attached_deposit() == GIVE_KUDOS_COST,
+            &display_deposit_requirement_in_near(GIVE_KUDOS_COST)
+        );
 
         let settings = Settings::from(&self.settings);
         settings.validate_commentary_text(&text);
@@ -272,14 +278,24 @@ impl Contract {
 
     #[private]
     #[handle_result]
-    pub fn on_kudos_saved(
-        &mut self,
-        kudos_id: KudosId,
-        #[callback_result] callback_result: Result<(), PromiseError>,
-    ) -> Result<KudosId, String> {
-        callback_result
-            .map_err(|e| format!("SocialDB::set() call failure: {:?}", e))
-            .map(|_| kudos_id)
+    pub fn on_kudos_saved(&mut self, kudos_id: KudosId) -> Result<KudosId, String> {
+        let result = match env::promise_result(0) {
+            PromiseResult::Successful(data) => data,
+            res => return Err(format!("SocialDB::set() call failure: {res:?}")),
+        };
+
+        if result.is_empty() {
+            return Ok(kudos_id);
+        }
+
+        match serde_json::from_slice(&result) {
+            Ok(serde_json::Value::Bool(false)) => {
+                Err("IAHRegistry::is_human_call() failure".to_owned())
+            }
+            _ => Err(format!(
+                "IAHRegistry::is_human_call() unexpected result: {result:?}"
+            )),
+        }
     }
 
     #[private]

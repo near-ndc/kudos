@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshSerialize};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
-use near_sdk::{Balance, BorshStorageKey, Gas, StorageUsage};
+use near_sdk::{Balance, BorshStorageKey, Gas, StorageUsage, ONE_NEAR};
 
 pub(crate) const U128_STORAGE: StorageUsage = 16;
 pub(crate) const U64_STORAGE: StorageUsage = 8;
@@ -26,3 +26,5 @@ pub const EXCHANGE_KUDOS_STORAGE: StorageUsage = STORAGE_ENTRY + ENUM_STORAGE_KE
 /// Deposit required to exchange upvoted Kudos for ProofOfKudos SBT
 pub const EXCHANGE_KUDOS_COST: Balance =
     EXCHANGE_KUDOS_STORAGE as Balance * STORAGE_PRICE_PER_BYTE + PROOF_OF_KUDOS_SBT_MINT_COST;
+
+pub const GIVE_KUDOS_COST: Balance = 88_000_000_000_000_000_000_000; // 0.088 NEAR
