@@ -2,7 +2,7 @@ use crate::consts::*;
 use crate::external_db::ext_db;
 use crate::registry::{ext_sbtreg, TokenId, TokenMetadata, IS_HUMAN_GAS};
 use crate::settings::Settings;
-use crate::types::{KudosId, PromiseFunctionCall};
+use crate::types::{KudosId, MethodResult, PromiseFunctionCall};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
 use near_sdk::json_types::Base64VecU8;
@@ -18,10 +18,7 @@ impl Contract {
     /// Exchange upvoted Kudos for ProofOfKudos SBT
     #[payable]
     #[handle_result]
-    pub fn exchange_kudos_for_sbt(
-        &mut self,
-        kudos_id: KudosId,
-    ) -> Result<PromiseOrValue<Vec<u64>>, &'static str> {
+    pub fn exchange_kudos_for_sbt(&mut self, kudos_id: KudosId) -> Result<Promise, &'static str> {
         self.assert_contract_running();
 
         require!(
@@ -80,8 +77,7 @@ impl Contract {
                             static_gas: KUDOS_UPVOTES_CONFIRMED_CALLBACK_GAS,
                         },
                     ),
-            )
-            .into())
+            ))
     }
 
     #[payable]
@@ -91,7 +87,7 @@ impl Contract {
         receiver_id: AccountId,
         kudos_id: KudosId,
         text: String,
-    ) -> Result<PromiseOrValue<()>, &'static str> {
+    ) -> Result<Promise, &'static str> {
         self.assert_contract_running();
 
         let predecessor_account_id = env::predecessor_account_id();
@@ -156,8 +152,7 @@ impl Contract {
                             static_gas: get_kudos_by_id_callback_gas,
                         },
                     ),
-            )
-            .into())
+            ))
     }
 
     #[payable]
@@ -166,7 +161,7 @@ impl Contract {
         &mut self,
         receiver_id: AccountId,
         kudos_id: KudosId,
-    ) -> Result<PromiseOrValue<Option<u64>>, &'static str> {
+    ) -> Result<Promise, &'static str> {
         self.assert_contract_running();
 
         let predecessor_account_id = env::predecessor_account_id();
@@ -228,8 +223,7 @@ impl Contract {
                             static_gas: get_kudos_by_id_callback_gas,
                         },
                     ),
-            )
-            .into())
+            ))
     }
 
     #[payable]
@@ -239,7 +233,7 @@ impl Contract {
         receiver_id: AccountId,
         text: String,
         hashtags: Option<Vec<String>>,
-    ) -> Result<PromiseOrValue<Option<KudosId>>, &'static str> {
+    ) -> Result<Promise, &'static str> {
         self.assert_contract_running();
 
         let predecessor_account_id = env::predecessor_account_id();
@@ -318,8 +312,7 @@ impl Contract {
                             static_gas: KUDOS_SAVED_CALLBACK_GAS,
                         },
                     ),
-            )
-            .into())
+            ))
     }
 
     #[private]
@@ -329,27 +322,17 @@ impl Contract {
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         upvote_req: Value,
-    ) -> PromiseOrValue<Option<u64>> {
-        let kudos_by_id_res = match env::promise_result(0) {
-            PromiseResult::Successful(data) => {
-                serde_json::from_slice::<Value>(&data).map_err(|e| {
-                    format!("SocialDB::get({get_kudos_by_id_req}) failed to parse results: {data:?}. {e:?}")
-                })
-            }
-            promise_res => Err(format!(
-                "SocialDB::get({get_kudos_by_id_req}) call failure: {promise_res:?}"
-            )),
-        };
-
-        match kudos_by_id_res.and_then(|kudos_by_id_res| {
-            extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
-                .ok_or_else(|| format!("Unable to acquire a Kudos sender account id"))
-        }) {
-            Err(e) => {
-                env::log_str(&e);
-            }
+        #[callback_result] callback_result: Result<Value, PromiseError>,
+    ) -> PromiseOrValue<MethodResult<u64>> {
+        let method_result = match callback_result
+            .map_err(|e| format!("SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"))
+            .and_then(|kudos_by_id_res| {
+                extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
+                    .ok_or_else(|| format!("Unable to acquire a Kudos sender account id"))
+            }) {
+            Err(e) => MethodResult::Error(e),
             Ok(sender_id) if sender_id == env::signer_account_id() => {
-                env::log_str("User is not eligible to upvote this kudos");
+                MethodResult::error("User is not eligible to upvote this kudos")
             }
             Ok(_) => {
                 let gas_available = env::prepaid_gas()
@@ -371,7 +354,7 @@ impl Contract {
         // Return upvote deposit back to sender if failed
         Promise::new(predecessor_account_id).transfer(env::attached_deposit());
 
-        PromiseOrValue::Value(None)
+        PromiseOrValue::Value(method_result)
     }
 
     #[private]
@@ -381,25 +364,21 @@ impl Contract {
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         leave_comment_req: Value,
-    ) -> PromiseOrValue<Option<u64>> {
-        let kudos_by_id_res = match env::promise_result(0) {
-            PromiseResult::Successful(data) => {
-                serde_json::from_slice::<Value>(&data).map_err(|e| {
-                    format!("SocialDB::get({get_kudos_by_id_req}) failed to parse results: {data:?}. {e:?}")
-                })
-            }
-            promise_res => Err(format!(
-                "SocialDB::get({get_kudos_by_id_req}) call failure: {promise_res:?}"
-            )),
-        };
-
-        match kudos_by_id_res.and_then(|kudos_by_id_res| {
-            extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
-                .ok_or_else(|| format!("Unable to acquire a Kudos sender account id"))
-        }) {
-            Err(e) => {
-                env::log_str(&e);
-            }
+        #[callback_result] callback_result: Result<Value, PromiseError>,
+    ) -> PromiseOrValue<MethodResult<u64>> {
+        let method_result = match callback_result
+            .map_err(|e| {
+                MethodResult::Error(format!(
+                    "SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"
+                ))
+            })
+            .and_then(|kudos_by_id_res| {
+                extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
+                    .ok_or_else(|| {
+                        MethodResult::error("Unable to acquire a Kudos sender account id")
+                    })
+            }) {
+            Err(e) => e,
             Ok(_) => {
                 let gas_left =
                     env::prepaid_gas() - (VERIFY_KUDOS_RESERVED_GAS + COMMENT_SAVED_CALLBACK_GAS);
@@ -420,7 +399,7 @@ impl Contract {
         // Return leave comment deposit back to sender if failed
         Promise::new(predecessor_account_id).transfer(env::attached_deposit());
 
-        PromiseOrValue::Value(None)
+        PromiseOrValue::Value(method_result)
     }
 
     #[private]
@@ -428,26 +407,32 @@ impl Contract {
         &mut self,
         predecessor_account_id: AccountId,
         kudos_id: KudosId,
-    ) -> Option<KudosId> {
-        match env::promise_result(0) {
-            PromiseResult::Successful(_) => Some(kudos_id),
-            promise_res => {
-                env::log_str(&format!("SocialDB::set() call failure: {promise_res:?}"));
+        #[callback_result] callback_result: Result<(), PromiseError>,
+    ) -> MethodResult<KudosId> {
+        match callback_result {
+            Ok(_) => MethodResult::Success(kudos_id),
+            Err(e) => {
                 // Return deposit back to sender if NEAR SocialDb write failure
                 Promise::new(predecessor_account_id).transfer(env::attached_deposit());
-                None
+
+                MethodResult::Error(format!("SocialDB::set() call failure: {e:?}"))
             }
         }
     }
 
     #[private]
-    pub fn on_social_db_data_saved(&mut self, predecessor_account_id: AccountId) -> Option<u64> {
-        match env::promise_result(0) {
-            PromiseResult::Successful(_) => Some(env::block_timestamp_ms()),
-            promise_res => {
-                env::log_str(&format!("SocialDB::set() call failure: {promise_res:?}"));
+    pub fn on_social_db_data_saved(
+        &mut self,
+        predecessor_account_id: AccountId,
+        #[callback_result] callback_result: Result<(), PromiseError>,
+    ) -> MethodResult<u64> {
+        match callback_result {
+            Ok(_) => MethodResult::Success(env::block_timestamp_ms()),
+            Err(e) => {
+                // Return deposit back to sender if NEAR SocialDb write failure
                 Promise::new(predecessor_account_id).transfer(env::attached_deposit());
-                None
+
+                MethodResult::Error(format!("SocialDB::set() call failure: {e:?}"))
             }
         }
     }
@@ -458,43 +443,38 @@ impl Contract {
         predecessor_account_id: AccountId,
         kudos_id: KudosId,
         kudos_upvotes_path: String,
-    ) -> PromiseOrValue<Option<Vec<u64>>> {
+        #[callback_result] kudos_result: Result<Value, PromiseError>,
+    ) -> PromiseOrValue<MethodResult<Vec<u64>>> {
         let settings = Settings::from(&self.settings);
 
-        let kudos_res = match env::promise_result(0) {
-            PromiseResult::Successful(data) => {
-                serde_json::from_slice::<Value>(&data).map_err(|e| {
-                    format!("SocialDB::keys({kudos_upvotes_path}/*) failed to parse results: {data:?}. {e:?}")
-                })
-            }
-            promise_res => Err(format!(
-                "SocialDB::keys({kudos_upvotes_path}/*) call failure: {promise_res:?}"
-            )),
-        };
+        let result = kudos_result
+            .map_err(|e| format!("SocialDB::keys({kudos_upvotes_path}/*) call failure: {e:?}"))
+            .and_then(|mut kudos_json| {
+                let upvotes_raw = remove_key_from_json(&mut kudos_json, &kudos_upvotes_path)
+                    .ok_or_else(|| {
+                        format!("No upvotes information found for kudos. Response: {kudos_json:?}")
+                    })?;
 
-        let result = kudos_res.and_then(|mut kudos_res| {
-            let upvotes_raw = remove_key_from_json(&mut kudos_res, &kudos_upvotes_path)
-                .ok_or_else(|| {
-                    format!("No upvotes information found for kudos. Response: {kudos_res:?}")
-                })?;
+                let upvoters =
+                    serde_json::from_value::<HashMap<AccountId, bool>>(upvotes_raw.clone())
+                        .map_err(|e| {
+                            format!("Failed to parse upvotes data `{upvotes_raw:?}`: {e:?}")
+                        })?;
 
-            let upvoters = serde_json::from_value::<HashMap<AccountId, bool>>(upvotes_raw.clone())
-                .map_err(|e| format!("Failed to parse upvotes data `{upvotes_raw:?}`: {e:?}"))?;
+                let number_of_upvotes = upvoters.keys().len();
 
-            let number_of_upvotes = upvoters.keys().len();
+                if !settings.verify_number_of_upvotes_to_exchange_kudos(number_of_upvotes) {
+                    return Err(format!(
+                        "Minimum required number ({}) of upvotes has not been reached",
+                        settings.min_number_of_upvotes_to_exchange_kudos
+                    ));
+                }
 
-            if !settings.verify_number_of_upvotes_to_exchange_kudos(number_of_upvotes) {
-                return Err(format!(
-                    "Minimum required number ({}) of upvotes has not been reached",
-                    settings.min_number_of_upvotes_to_exchange_kudos
-                ));
-            }
+                let issued_at = env::block_timestamp_ms();
+                let expires_at = settings.acquire_pok_sbt_expire_at_ts(issued_at)?;
 
-            let issued_at = env::block_timestamp_ms();
-            let expires_at = settings.acquire_pok_sbt_expire_at_ts(issued_at)?;
-
-            Ok(build_pok_sbt_metadata(issued_at, expires_at))
-        });
+                Ok(build_pok_sbt_metadata(issued_at, expires_at))
+            });
 
         match result {
             Ok(metadata) => {
@@ -512,12 +492,10 @@ impl Contract {
                     .into();
             }
             Err(e) => {
-                env::log_str(&e);
-
                 // Return leave comment deposit back to sender if failed
                 Promise::new(predecessor_account_id).transfer(env::attached_deposit());
 
-                PromiseOrValue::Value(None)
+                PromiseOrValue::Value(MethodResult::Error(e))
             }
         }
     }
@@ -528,19 +506,17 @@ impl Contract {
         predecessor_account_id: AccountId,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<u64>, PromiseError>,
-    ) -> Option<Vec<u64>> {
+    ) -> MethodResult<Vec<u64>> {
         match callback_result {
-            Ok(minted_tokens_ids) => Some(minted_tokens_ids),
+            Ok(minted_tokens_ids) => MethodResult::Success(minted_tokens_ids),
             Err(e) => {
-                env::log_str(&format!("IAHRegistry::sbt_mint() call failure: {:?}", e));
-
                 // If tokens weren't minted, remove kudos from exchanged table
                 self.exchanged_kudos.remove(&kudos_id);
 
                 // Return deposit back to sender if IAHRegistry::sbt_mint fails
                 Promise::new(predecessor_account_id).transfer(env::attached_deposit());
 
-                None
+                MethodResult::Error(format!("IAHRegistry::sbt_mint() call failure: {:?}", e))
             }
         }
     }

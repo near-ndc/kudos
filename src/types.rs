@@ -44,3 +44,16 @@ pub struct PromiseFunctionCall {
     pub attached_deposit: Option<near_sdk::Balance>,
     pub static_gas: near_sdk::Gas,
 }
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(crate = "near_sdk::serde", tag = "status", content = "result")]
+pub enum MethodResult<T> {
+    Success(T),
+    Error(String),
+}
+
+impl<T> MethodResult<T> {
+    pub fn error<E: ToString>(err: E) -> Self {
+        Self::Error(err.to_string())
+    }
+}

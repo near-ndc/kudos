@@ -1,3 +1,4 @@
+use crate::types::MethodResult;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -23,11 +24,12 @@ pub fn build_default_context(
 }
 
 pub fn promise_or_value_into_result<T: std::fmt::Debug>(
-    value: PromiseOrValue<T>,
+    value: PromiseOrValue<MethodResult<T>>,
 ) -> Result<String, String> {
     match value {
         PromiseOrValue::Promise(promise) => near_sdk::serde_json::to_string(&promise)
             .map_err(|e| format!("Failed to serialize Promise: {e:?}")),
-        PromiseOrValue::Value(value) => Ok(format!("{value:?}")),
+        PromiseOrValue::Value(MethodResult::Success(res)) => Ok(format!("{res:?}")),
+        PromiseOrValue::Value(MethodResult::Error(e)) => Err(e),
     }
 }
