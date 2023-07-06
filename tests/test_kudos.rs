@@ -221,8 +221,6 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     .map(|map| map.keys().cloned().collect::<Vec<_>>());
     assert_eq!(extracted_hashtags, Some(hashtags));
 
-    // kudos referenced by id and account of User2
-    //let kudos_reference = format!(r#"{{"{}":"{}"}}"#, kudos_id, user2_account.id());
     assert_eq!(
         kudos_data.to_string(),
         format!(
@@ -393,7 +391,6 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
 
     let user2_account = gen_user_account(&worker, "user2.test.near").await?;
     let _ = transfer_near(&worker, user2_account.id(), parse_near!("10 N")).await?;
-
     let user3_account = gen_user_account(&worker, "user3.test.near").await?;
     let _ = transfer_near(&worker, user3_account.id(), parse_near!("10 N")).await?;
 

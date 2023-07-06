@@ -34,3 +34,13 @@ impl Display for KudosId {
 pub(crate) enum StorageKey {
     Kudos,
 }
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct PromiseFunctionCall {
+    pub contract_id: AccountId,
+    pub function_name: String,
+    pub arguments: Vec<u8>,
+    pub attached_deposit: Option<near_sdk::Balance>,
+    pub static_gas: near_sdk::Gas,
+}

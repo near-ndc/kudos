@@ -1,7 +1,11 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{ext_contract, AccountId, Promise, PromiseOrValue};
+use near_sdk::{ext_contract, AccountId, Gas, Promise, PromiseOrValue};
+
+pub type TokenId = u64;
+
+pub const IS_HUMAN_GAS: Gas = Gas(12 * Gas::ONE_TERA.0);
 
 /// TokenMetadata defines attributes for each SBT token.
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -23,6 +27,7 @@ pub struct OwnedToken {
 
 #[ext_contract(ext_sbtreg)]
 pub trait ExtSbtRegistry {
+    /*
     fn is_human_call(
         &mut self,
         account: AccountId,
@@ -30,6 +35,9 @@ pub trait ExtSbtRegistry {
         function: String,
         args: Base64VecU8,
     ) -> PromiseOrValue<bool>;
+    */
+
+    fn is_human(&self, account: AccountId) -> Vec<(AccountId, Vec<TokenId>)>;
 
     fn sbt_mint(&mut self, token_spec: Vec<(AccountId, Vec<TokenMetadata>)>) -> Promise;
 }

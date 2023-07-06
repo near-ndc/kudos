@@ -39,6 +39,7 @@ pub fn build_give_kudos_request(
     text: &str,
     hashtags: &str,
 ) -> Result<Value, &'static str> {
+    // TODO: verify text & hashtags for not acceptable symbols
     serde_json::from_str::<Value>(&format!(
         r#"{{
           "{root_id}": {{

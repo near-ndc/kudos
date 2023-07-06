@@ -1,14 +1,15 @@
-use crate::consts::{EXCHANGE_KUDOS_COST, PROOF_OF_KUDOS_SBT_MINT_COST};
+use crate::consts::*;
 use crate::external_db::ext_db;
-use crate::registry::{ext_sbtreg, TokenMetadata};
+use crate::registry::{ext_sbtreg, TokenId, TokenMetadata, IS_HUMAN_GAS};
 use crate::settings::Settings;
-use crate::types::KudosId;
+use crate::types::{KudosId, PromiseFunctionCall};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde_json::{self, json, Value};
 use near_sdk::{
-    env, near_bindgen, require, AccountId, Promise, PromiseError, PromiseOrValue, PromiseResult,
+    env, near_bindgen, require, AccountId, Gas, Promise, PromiseError, PromiseOrValue,
+    PromiseResult,
 };
 use std::collections::HashMap;
 
@@ -28,34 +29,57 @@ impl Contract {
             &display_deposit_requirement_in_near(EXCHANGE_KUDOS_COST)
         );
 
+        // TODO: check for minimum required gas
+
         if self.exchanged_kudos.contains(&kudos_id) {
             return Err("Kudos is already exchanged");
         }
 
+        let predecessor_account_id = env::predecessor_account_id();
         let external_db_id = self.external_db_id()?;
         let receiver_id = env::signer_account_id();
         let root_id = env::current_account_id();
         let kudos_upvotes_path = build_kudos_upvotes_path(&root_id, &receiver_id, &kudos_id);
         let collect_upvotes_req = [&kudos_upvotes_path, "/*"].concat();
 
+        let gas_available = env::prepaid_gas()
+            - (env::used_gas() + IS_HUMAN_GAS + EXCHANGE_KUDOS_FOR_SBT_RESERVED_GAS);
+        let collect_upvotes_gas =
+            gas_available - (HUMANITY_VERIFIED_RESERVED_GAS + KUDOS_UPVOTES_CONFIRMED_CALLBACK_GAS);
+
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
-            //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .is_human_call(
-                receiver_id,
-                external_db_id.clone(),
-                "keys".to_owned(),
-                Base64VecU8::try_from(
-                    json!({
-                        "keys": [collect_upvotes_req],
-                    })
-                    .to_string()
-                    .into_bytes(),
-                )
-                .map_err(|_| "Internal serialization error")?,
-            )
+            .with_static_gas(IS_HUMAN_GAS)
+            .is_human(receiver_id.clone())
             .then(
                 Self::ext(env::current_account_id())
-                    .send_sbt_mint_request(kudos_id, kudos_upvotes_path),
+                    .with_static_gas(gas_available)
+                    .on_humanity_verified(
+                        predecessor_account_id.clone(),
+                        PromiseFunctionCall {
+                            contract_id: external_db_id.clone(),
+                            function_name: "keys".to_owned(),
+                            arguments: json!({
+                                "keys": [collect_upvotes_req],
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: Some(env::attached_deposit()),
+                            static_gas: collect_upvotes_gas,
+                        },
+                        PromiseFunctionCall {
+                            contract_id: env::current_account_id(),
+                            function_name: "send_sbt_mint_request".to_owned(),
+                            arguments: json!({
+                                "predecessor_account_id": predecessor_account_id,
+                                "kudos_id": kudos_id,
+                                "kudos_upvotes_path": kudos_upvotes_path,
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: None,
+                            static_gas: KUDOS_UPVOTES_CONFIRMED_CALLBACK_GAS,
+                        },
+                    ),
             )
             .into())
     }
@@ -70,6 +94,7 @@ impl Contract {
     ) -> Result<PromiseOrValue<()>, &'static str> {
         self.assert_contract_running();
 
+        let predecessor_account_id = env::predecessor_account_id();
         let sender_id = env::signer_account_id();
         require!(
             receiver_id != sender_id,
@@ -77,6 +102,7 @@ impl Contract {
         );
 
         // TODO: check for minimum required deposit
+        // TODO: check for minimum required gas
 
         Settings::from(&self.settings).validate_commentary_text(&text);
 
@@ -86,27 +112,50 @@ impl Contract {
             build_leave_comment_request(&root_id, &sender_id, &receiver_id, &kudos_id, &text)?;
         let get_kudos_by_id_req = build_get_kudos_by_id_request(&root_id, &receiver_id, &kudos_id);
 
+        let gas_available =
+            env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + LEAVE_COMMENT_RESERVED_GAS);
+        let get_kudos_by_id_gas = (gas_available
+            - (HUMANITY_VERIFIED_RESERVED_GAS
+                + VERIFY_KUDOS_RESERVED_GAS
+                + COMMENT_SAVED_CALLBACK_GAS))
+            / 2;
+        let get_kudos_by_id_callback_gas =
+            get_kudos_by_id_gas + VERIFY_KUDOS_RESERVED_GAS + COMMENT_SAVED_CALLBACK_GAS;
+
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
-            //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .is_human_call(
-                sender_id,
-                external_db_id.clone(),
-                "get".to_owned(),
-                Base64VecU8::try_from(
-                    json!({
-                        "keys": [&get_kudos_by_id_req],
-                    })
-                    .to_string()
-                    .into_bytes(),
-                )
-                .map_err(|_| "Internal serialization error")?,
-            )
+            .with_static_gas(IS_HUMAN_GAS)
+            .is_human(sender_id.clone())
             .then(
-                Self::ext(env::current_account_id()).send_verified_leave_comment_request(
-                    external_db_id.clone(),
-                    get_kudos_by_id_req,
-                    leave_comment_req,
-                ),
+                Self::ext(env::current_account_id())
+                    .with_static_gas(gas_available)
+                    .on_humanity_verified(
+                        predecessor_account_id.clone(),
+                        PromiseFunctionCall {
+                            contract_id: external_db_id.clone(),
+                            function_name: "get".to_owned(),
+                            arguments: json!({
+                                "keys": [&get_kudos_by_id_req],
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: Some(env::attached_deposit()),
+                            static_gas: get_kudos_by_id_gas,
+                        },
+                        PromiseFunctionCall {
+                            contract_id: env::current_account_id(),
+                            function_name: "send_verified_leave_comment_request".to_owned(),
+                            arguments: json!({
+                                "predecessor_account_id": predecessor_account_id,
+                                "external_db_id": external_db_id.clone(),
+                                "get_kudos_by_id_req": get_kudos_by_id_req,
+                                "leave_comment_req": leave_comment_req,
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: None,
+                            static_gas: get_kudos_by_id_callback_gas,
+                        },
+                    ),
             )
             .into())
     }
@@ -117,9 +166,10 @@ impl Contract {
         &mut self,
         receiver_id: AccountId,
         kudos_id: KudosId,
-    ) -> Result<PromiseOrValue<()>, &'static str> {
+    ) -> Result<PromiseOrValue<Option<u64>>, &'static str> {
         self.assert_contract_running();
 
+        let predecessor_account_id = env::predecessor_account_id();
         let sender_id = env::signer_account_id();
         require!(
             receiver_id != sender_id,
@@ -127,33 +177,57 @@ impl Contract {
         );
 
         // TODO: check for minimum required deposit
+        // TODO: check for minimum required gas
 
         let external_db_id = self.external_db_id()?;
         let root_id = env::current_account_id();
         let upvote_req = build_upvote_kudos_request(&root_id, &sender_id, &receiver_id, &kudos_id)?;
         let get_kudos_by_id_req = build_get_kudos_by_id_request(&root_id, &receiver_id, &kudos_id);
 
+        let gas_available =
+            env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + UPVOTE_KUDOS_RESERVED_GAS);
+        let get_kudos_by_id_gas = (gas_available
+            - (HUMANITY_VERIFIED_RESERVED_GAS
+                + VERIFY_KUDOS_RESERVED_GAS
+                + UPVOTE_KUDOS_SAVED_CALLBACK_GAS))
+            / 2;
+        let get_kudos_by_id_callback_gas =
+            get_kudos_by_id_gas + VERIFY_KUDOS_RESERVED_GAS + UPVOTE_KUDOS_SAVED_CALLBACK_GAS;
+
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
-            //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .is_human_call(
-                sender_id,
-                external_db_id.clone(),
-                "get".to_owned(),
-                Base64VecU8::try_from(
-                    json!({
-                        "keys": [&get_kudos_by_id_req],
-                    })
-                    .to_string()
-                    .into_bytes(),
-                )
-                .map_err(|_| "Internal serialization error")?,
-            )
+            .with_static_gas(IS_HUMAN_GAS)
+            .is_human(sender_id.clone())
             .then(
-                Self::ext(env::current_account_id()).send_verified_upvote_request(
-                    external_db_id.clone(),
-                    get_kudos_by_id_req,
-                    upvote_req,
-                ),
+                Self::ext(env::current_account_id())
+                    .with_static_gas(gas_available)
+                    .on_humanity_verified(
+                        predecessor_account_id.clone(),
+                        PromiseFunctionCall {
+                            contract_id: external_db_id.clone(),
+                            function_name: "get".to_owned(),
+                            arguments: json!({
+                                "keys": [&get_kudos_by_id_req],
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: Some(env::attached_deposit()),
+                            static_gas: get_kudos_by_id_gas,
+                        },
+                        PromiseFunctionCall {
+                            contract_id: env::current_account_id(),
+                            function_name: "send_verified_upvote_request".to_owned(),
+                            arguments: json!({
+                                "predecessor_account_id": predecessor_account_id,
+                                "external_db_id": external_db_id.clone(),
+                                "get_kudos_by_id_req": get_kudos_by_id_req,
+                                "upvote_req": upvote_req,
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: None,
+                            static_gas: get_kudos_by_id_callback_gas,
+                        },
+                    ),
             )
             .into())
     }
@@ -165,9 +239,10 @@ impl Contract {
         receiver_id: AccountId,
         text: String,
         hashtags: Option<Vec<String>>,
-    ) -> Result<PromiseOrValue<Result<KudosId, String>>, &'static str> {
+    ) -> Result<PromiseOrValue<Option<KudosId>>, &'static str> {
         self.assert_contract_running();
 
+        let predecessor_account_id = env::predecessor_account_id();
         let sender_id = env::signer_account_id();
         require!(
             receiver_id != sender_id,
@@ -179,16 +254,22 @@ impl Contract {
             &display_deposit_requirement_in_near(GIVE_KUDOS_COST)
         );
 
+        // TODO: check for minimum required gas
+
         let settings = Settings::from(&self.settings);
         settings.validate_commentary_text(&text);
         if let Some(hashtags) = hashtags.as_ref() {
             settings.validate_hashtags(hashtags);
         }
 
-        let external_db_id = self.external_db_id()?;
         let next_kudos_id = self.last_kudos_id.next();
+        self.last_kudos_id = next_kudos_id.clone();
+
+        let external_db_id = self.external_db_id()?;
         let root_id = env::current_account_id();
         let created_at = env::block_timestamp_ms();
+        // TODO: move hashtags & kudos objects build after receive IAHRegistry::is_human response
+        // to prevent generating Kudos id for not a human accounts
         let hashtags = build_hashtags(&receiver_id, &next_kudos_id, hashtags)?;
         let data = build_give_kudos_request(
             &root_id,
@@ -200,179 +281,307 @@ impl Contract {
             &hashtags,
         )?;
 
+        let gas_available =
+            env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + GIVE_KUDOS_RESERVED_GAS);
+        let save_kudos_gas =
+            gas_available - (HUMANITY_VERIFIED_RESERVED_GAS + KUDOS_SAVED_CALLBACK_GAS);
+
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
-            .with_attached_deposit(env::attached_deposit())
-            //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .is_human_call(
-                sender_id,
-                external_db_id.clone(),
-                "set".to_owned(),
-                Base64VecU8::try_from(
-                    json!({
-                        "data": data,
-                    })
-                    .to_string()
-                    .into_bytes(),
-                )
-                .map_err(|_| "Internal serialization error")?,
+            .with_static_gas(IS_HUMAN_GAS)
+            .is_human(sender_id.clone())
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(gas_available)
+                    .on_humanity_verified(
+                        predecessor_account_id.clone(),
+                        PromiseFunctionCall {
+                            contract_id: external_db_id.clone(),
+                            function_name: "set".to_owned(),
+                            arguments: json!({
+                                "data": data,
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: Some(env::attached_deposit()),
+                            static_gas: save_kudos_gas,
+                        },
+                        PromiseFunctionCall {
+                            contract_id: env::current_account_id(),
+                            function_name: "on_kudos_saved".to_owned(),
+                            arguments: json!({
+                                "predecessor_account_id": predecessor_account_id,
+                                "kudos_id": next_kudos_id,
+                            })
+                            .to_string()
+                            .into_bytes(),
+                            attached_deposit: None,
+                            static_gas: KUDOS_SAVED_CALLBACK_GAS,
+                        },
+                    ),
             )
-            .then(Self::ext(env::current_account_id()).on_kudos_saved(next_kudos_id))
             .into())
     }
 
     #[private]
-    #[handle_result]
     pub fn send_verified_upvote_request(
         &mut self,
+        predecessor_account_id: AccountId,
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         upvote_req: Value,
-        #[callback_result] callback_result: Result<Value, PromiseError>,
-    ) -> Result<Promise, String> {
-        let kudos_by_id_res = callback_result
-            .map_err(|e| format!("SocialDB::get({get_kudos_by_id_req}) call failure: {:?}", e))?;
-
-        match extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res.clone()) {
-            None => {
-                return Err(format!(
-                    "Invalid kudos to upvote Req: {get_kudos_by_id_req:?} Res: {kudos_by_id_res:?}"
-                ));
+    ) -> PromiseOrValue<Option<u64>> {
+        let kudos_by_id_res = match env::promise_result(0) {
+            PromiseResult::Successful(data) => {
+                serde_json::from_slice::<Value>(&data).map_err(|e| {
+                    format!("SocialDB::get({get_kudos_by_id_req}) failed to parse results: {data:?}. {e:?}")
+                })
             }
-            Some(sender_id) if sender_id == env::signer_account_id() => {
-                return Err("User is not eligible to upvote this kudos".to_owned());
-            }
-            Some(_) => (),
+            promise_res => Err(format!(
+                "SocialDB::get({get_kudos_by_id_req}) call failure: {promise_res:?}"
+            )),
         };
 
-        Ok(ext_db::ext(external_db_id)
-            .with_attached_deposit(env::attached_deposit())
-            //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .set(upvote_req)
-            .then(Self::ext(env::current_account_id()).on_social_db_data_saved())
-            .into())
+        match kudos_by_id_res.and_then(|kudos_by_id_res| {
+            extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
+                .ok_or_else(|| format!("Unable to acquire a Kudos sender account id"))
+        }) {
+            Err(e) => {
+                env::log_str(&e);
+            }
+            Ok(sender_id) if sender_id == env::signer_account_id() => {
+                env::log_str("User is not eligible to upvote this kudos");
+            }
+            Ok(_) => {
+                let gas_available = env::prepaid_gas()
+                    - (VERIFY_KUDOS_RESERVED_GAS + UPVOTE_KUDOS_SAVED_CALLBACK_GAS);
+
+                return ext_db::ext(external_db_id)
+                    .with_attached_deposit(env::attached_deposit())
+                    .with_static_gas(gas_available)
+                    .set(upvote_req)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(UPVOTE_KUDOS_SAVED_CALLBACK_GAS)
+                            .on_social_db_data_saved(predecessor_account_id.clone()),
+                    )
+                    .into();
+            }
+        };
+
+        // Return upvote deposit back to sender if failed
+        Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+
+        PromiseOrValue::Value(None)
     }
 
     #[private]
-    #[handle_result]
     pub fn send_verified_leave_comment_request(
         &mut self,
+        predecessor_account_id: AccountId,
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         leave_comment_req: Value,
-        #[callback_result] callback_result: Result<Value, PromiseError>,
-    ) -> Result<Promise, String> {
-        let kudos_by_id_res = callback_result
-            .map_err(|e| format!("SocialDB::get({get_kudos_by_id_req}) call failure: {:?}", e))?;
-
-        if extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res).is_none() {
-            return Err("Invalid kudos to leave a comment for".to_owned());
-        }
-
-        Ok(ext_db::ext(external_db_id)
-            .with_attached_deposit(env::attached_deposit())
-            //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .set(leave_comment_req)
-            .then(Self::ext(env::current_account_id()).on_social_db_data_saved())
-            .into())
-    }
-
-    #[private]
-    #[handle_result]
-    pub fn on_kudos_saved(&mut self, kudos_id: KudosId) -> Result<KudosId, String> {
-        let result = match env::promise_result(0) {
-            PromiseResult::Successful(data) => data,
-            res => return Err(format!("SocialDB::set() call failure: {res:?}")),
+    ) -> PromiseOrValue<Option<u64>> {
+        let kudos_by_id_res = match env::promise_result(0) {
+            PromiseResult::Successful(data) => {
+                serde_json::from_slice::<Value>(&data).map_err(|e| {
+                    format!("SocialDB::get({get_kudos_by_id_req}) failed to parse results: {data:?}. {e:?}")
+                })
+            }
+            promise_res => Err(format!(
+                "SocialDB::get({get_kudos_by_id_req}) call failure: {promise_res:?}"
+            )),
         };
 
-        if result.is_empty() {
-            return Ok(kudos_id);
-        }
-
-        match serde_json::from_slice(&result) {
-            Ok(serde_json::Value::Bool(false)) => {
-                Err("IAHRegistry::is_human_call() failure".to_owned())
+        match kudos_by_id_res.and_then(|kudos_by_id_res| {
+            extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
+                .ok_or_else(|| format!("Unable to acquire a Kudos sender account id"))
+        }) {
+            Err(e) => {
+                env::log_str(&e);
             }
-            _ => Err(format!(
-                "IAHRegistry::is_human_call() unexpected result: {result:?}"
-            )),
+            Ok(_) => {
+                let gas_left =
+                    env::prepaid_gas() - (VERIFY_KUDOS_RESERVED_GAS + COMMENT_SAVED_CALLBACK_GAS);
+
+                return ext_db::ext(external_db_id)
+                    .with_attached_deposit(env::attached_deposit())
+                    .with_static_gas(gas_left)
+                    .set(leave_comment_req)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(COMMENT_SAVED_CALLBACK_GAS)
+                            .on_social_db_data_saved(predecessor_account_id.clone()),
+                    )
+                    .into();
+            }
+        };
+
+        // Return leave comment deposit back to sender if failed
+        Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+
+        PromiseOrValue::Value(None)
+    }
+
+    #[private]
+    pub fn on_kudos_saved(
+        &mut self,
+        predecessor_account_id: AccountId,
+        kudos_id: KudosId,
+    ) -> Option<KudosId> {
+        match env::promise_result(0) {
+            PromiseResult::Successful(_) => Some(kudos_id),
+            promise_res => {
+                env::log_str(&format!("SocialDB::set() call failure: {promise_res:?}"));
+                // Return deposit back to sender if NEAR SocialDb write failure
+                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                None
+            }
         }
     }
 
     #[private]
-    #[handle_result]
-    pub fn on_social_db_data_saved(
-        &mut self,
-        #[callback_result] callback_result: Result<(), PromiseError>,
-    ) -> Result<(), String> {
-        callback_result.map_err(|e| format!("SocialDB::set() call failure: {:?}", e))
+    pub fn on_social_db_data_saved(&mut self, predecessor_account_id: AccountId) -> Option<u64> {
+        match env::promise_result(0) {
+            PromiseResult::Successful(_) => Some(env::block_timestamp_ms()),
+            promise_res => {
+                env::log_str(&format!("SocialDB::set() call failure: {promise_res:?}"));
+                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                None
+            }
+        }
     }
 
     #[private]
-    #[handle_result]
     pub fn send_sbt_mint_request(
         &mut self,
+        predecessor_account_id: AccountId,
         kudos_id: KudosId,
         kudos_upvotes_path: String,
-        #[callback_result] callback_result: Result<Value, PromiseError>,
-    ) -> Result<PromiseOrValue<Vec<u64>>, String> {
-        let mut result = callback_result.map_err(|e| {
-            format!(
-                "SocialDB::keys({kudos_upvotes_path}/*) call failure: {:?}",
-                e
-            )
-        })?;
-
-        let upvoters = remove_key_from_json(&mut result, &kudos_upvotes_path)
-            .ok_or_else(|| {
-                format!("SocialDB::keys({kudos_upvotes_path}/*) invalid response {result:?}")
-            })
-            .and_then(|upvotes| {
-                serde_json::from_value::<HashMap<AccountId, bool>>(upvotes.clone())
-                    .map_err(|e| format!("Failed to parse upvotes data `{upvotes:?}`: {e:?}"))
-            })?;
-
-        let number_of_upvotes = upvoters.keys().len();
+    ) -> PromiseOrValue<Option<Vec<u64>>> {
         let settings = Settings::from(&self.settings);
 
-        if !settings.verify_number_of_upvotes_to_exchange_kudos(number_of_upvotes) {
-            return Err(format!(
-                "Minimum required number ({}) of upvotes is not reached",
-                settings.min_number_of_upvotes_to_exchange_kudos
-            ));
+        let kudos_res = match env::promise_result(0) {
+            PromiseResult::Successful(data) => {
+                serde_json::from_slice::<Value>(&data).map_err(|e| {
+                    format!("SocialDB::keys({kudos_upvotes_path}/*) failed to parse results: {data:?}. {e:?}")
+                })
+            }
+            promise_res => Err(format!(
+                "SocialDB::keys({kudos_upvotes_path}/*) call failure: {promise_res:?}"
+            )),
+        };
+
+        let result = kudos_res.and_then(|mut kudos_res| {
+            let upvotes_raw = remove_key_from_json(&mut kudos_res, &kudos_upvotes_path)
+                .ok_or_else(|| {
+                    format!("No upvotes information found for kudos. Response: {kudos_res:?}")
+                })?;
+
+            let upvoters = serde_json::from_value::<HashMap<AccountId, bool>>(upvotes_raw.clone())
+                .map_err(|e| format!("Failed to parse upvotes data `{upvotes_raw:?}`: {e:?}"))?;
+
+            let number_of_upvotes = upvoters.keys().len();
+
+            if !settings.verify_number_of_upvotes_to_exchange_kudos(number_of_upvotes) {
+                return Err(format!(
+                    "Minimum required number ({}) of upvotes has not been reached",
+                    settings.min_number_of_upvotes_to_exchange_kudos
+                ));
+            }
+
+            let issued_at = env::block_timestamp_ms();
+            let expires_at = settings.acquire_pok_sbt_expire_at_ts(issued_at)?;
+
+            Ok(build_pok_sbt_metadata(issued_at, expires_at))
+        });
+
+        match result {
+            Ok(metadata) => {
+                self.exchanged_kudos.insert(kudos_id.clone());
+
+                return ext_sbtreg::ext(self.iah_registry.clone())
+                    .with_attached_deposit(PROOF_OF_KUDOS_SBT_MINT_COST)
+                    .with_static_gas(PROOF_OF_KUDOS_SBT_MINT_GAS)
+                    .sbt_mint(vec![(env::signer_account_id(), vec![metadata])])
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(COMMENT_SAVED_CALLBACK_GAS)
+                            .on_pok_sbt_mint(predecessor_account_id.clone(), kudos_id),
+                    )
+                    .into();
+            }
+            Err(e) => {
+                env::log_str(&e);
+
+                // Return leave comment deposit back to sender if failed
+                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+
+                PromiseOrValue::Value(None)
+            }
         }
-
-        let issued_at = env::block_timestamp_ms();
-        let expires_at = settings.acquire_pok_sbt_expire_at_ts(issued_at)?;
-
-        self.exchanged_kudos.insert(kudos_id.clone());
-
-        Ok(ext_sbtreg::ext(self.iah_registry.clone())
-            .with_attached_deposit(PROOF_OF_KUDOS_SBT_MINT_COST)
-            //.with_static_gas(static_gas) TODO: use pre-computed static amount gas
-            .sbt_mint(vec![(
-                env::signer_account_id(),
-                vec![build_pok_sbt_metadata(issued_at, expires_at)],
-            )])
-            .then(Self::ext(env::current_account_id()).on_pok_sbt_mint(kudos_id))
-            .into())
     }
 
     #[private]
     pub fn on_pok_sbt_mint(
         &mut self,
+        predecessor_account_id: AccountId,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<u64>, PromiseError>,
-    ) -> PromiseOrValue<Vec<u64>> {
-        let minted_tokens_ids = callback_result.unwrap_or_else(|e| {
-            env::log_str(&format!("IAHRegistry::sbt_mint() call failure: {:?}", e));
-            vec![]
-        });
+    ) -> Option<Vec<u64>> {
+        match callback_result {
+            Ok(minted_tokens_ids) => Some(minted_tokens_ids),
+            Err(e) => {
+                env::log_str(&format!("IAHRegistry::sbt_mint() call failure: {:?}", e));
 
-        if minted_tokens_ids.is_empty() {
-            // If tokens weren't minted, remove kudos from exchanged table
-            self.exchanged_kudos.remove(&kudos_id);
+                // If tokens weren't minted, remove kudos from exchanged table
+                self.exchanged_kudos.remove(&kudos_id);
+
+                // Return deposit back to sender if IAHRegistry::sbt_mint fails
+                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+
+                None
+            }
         }
+    }
 
-        PromiseOrValue::Value(minted_tokens_ids)
+    #[private]
+    pub fn on_humanity_verified(
+        &mut self,
+        predecessor_account_id: AccountId,
+        promise: PromiseFunctionCall,
+        callback_promise: PromiseFunctionCall,
+        #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
+    ) -> PromiseOrValue<Option<KudosId>> {
+        //env::log_str(&format!("IAHRegistry::is_human(): {callback_result:?}"));
+        let promise: Option<Promise> = match callback_result {
+            Ok(res) if res.is_empty() => {
+                env::log_str("IAHRegistry::is_human() returns result: Not a human");
+                None
+            }
+            Ok(_) => Promise::new(promise.contract_id)
+                .function_call(
+                    promise.function_name,
+                    promise.arguments,
+                    promise.attached_deposit.unwrap_or_default(),
+                    promise.static_gas,
+                )
+                .then(Promise::new(callback_promise.contract_id).function_call(
+                    callback_promise.function_name,
+                    callback_promise.arguments,
+                    callback_promise.attached_deposit.unwrap_or_default(),
+                    callback_promise.static_gas,
+                ))
+                .into(),
+            Err(e) => {
+                env::log_str(&format!("IAHRegistry::is_human() call failure: {e:?}"));
+                None
+            }
+        };
+
+        promise.map(PromiseOrValue::from).unwrap_or_else(|| {
+            Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+            PromiseOrValue::Value(None)
+        })
     }
 }

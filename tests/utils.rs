@@ -129,12 +129,23 @@ pub async fn give_kudos(
         .max_gas()
         .transact()
         .await?
-        .into_result();
+        .into_result()
+        .map_err(|e| anyhow::Error::msg(format!("Give kudos failure: {e:?}")));
 
-    match res {
-        Ok(res) => res.json::<KudosId>().map_err(anyhow::Error::msg),
-        Err(e) => Err(anyhow::Error::msg(format!("Give kudos failure: {e:?}"))),
-    }
+    res.and_then(|res| match res.json::<Option<KudosId>>() {
+        Ok(Some(kudos_id)) => {
+            println!("Receipts: {res:?}");
+            Ok(kudos_id)
+        }
+        Ok(None) => Err(anyhow::Error::msg(format!(
+            "Failed to give kudos. Receipts: {:?}",
+            res.receipt_outcomes(),
+        ))),
+        Err(e) => Err(anyhow::Error::msg(format!(
+            "Failed to deserialize give kudos response: {e:?}. Receipts: {:?}",
+            res.receipt_outcomes()
+        ))),
+    })
 }
 
 pub async fn upvote_kudos(
@@ -142,7 +153,7 @@ pub async fn upvote_kudos(
     sender: &workspaces::Account,
     receiver_id: &workspaces::AccountId,
     kudos_id: &KudosId,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<u64> {
     let res = sender
         .call(kudos_contract_id, "upvote_kudos")
         .args_json(json!({
@@ -153,8 +164,23 @@ pub async fn upvote_kudos(
         .max_gas()
         .transact()
         .await?
-        .json()?;
-    Ok(res)
+        .into_result()
+        .map_err(|e| anyhow::Error::msg(format!("Upvote kudos failure: {e:?}")));
+
+    res.and_then(|res| match res.json::<Option<u64>>() {
+        Ok(Some(created_at)) => {
+            println!("Receipts: {res:?}");
+            Ok(created_at)
+        }
+        Ok(None) => Err(anyhow::Error::msg(format!(
+            "Failed to upvotes kudos. Receipts: {:?}",
+            res.receipt_outcomes(),
+        ))),
+        Err(e) => Err(anyhow::Error::msg(format!(
+            "Failed to deserialize upvote kudos response: {e:?}. Receipts: {:?}",
+            res.receipt_outcomes()
+        ))),
+    })
 }
 
 pub async fn leave_comment(
@@ -163,7 +189,7 @@ pub async fn leave_comment(
     receiver_id: &workspaces::AccountId,
     kudos_id: &KudosId,
     text: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<u64> {
     let res = sender
         .call(kudos_contract_id, "leave_comment")
         .args_json(json!({
@@ -175,8 +201,23 @@ pub async fn leave_comment(
         .max_gas()
         .transact()
         .await?
-        .json()?;
-    Ok(res)
+        .into_result()
+        .map_err(|e| anyhow::Error::msg(format!("Leave comment failure: {e:?}")));
+
+    res.and_then(|res| match res.json::<Option<u64>>() {
+        Ok(Some(created_at)) => {
+            println!("Receipts: {res:?}");
+            Ok(created_at)
+        }
+        Ok(None) => Err(anyhow::Error::msg(format!(
+            "Failed to leave a comment for kudos. Receipts: {:?}",
+            res.receipt_outcomes(),
+        ))),
+        Err(e) => Err(anyhow::Error::msg(format!(
+            "Failed to deserialize leave comment response: {e:?}. Receipts: {:?}",
+            res.receipt_outcomes()
+        ))),
+    })
 }
 
 pub async fn exchange_kudos_for_sbt(
@@ -193,15 +234,23 @@ pub async fn exchange_kudos_for_sbt(
         .max_gas()
         .transact()
         .await?
-        .into_result();
+        .into_result()
+        .map_err(|e| anyhow::Error::msg(format!("Exchange kudos failure: {e:?}")));
 
-    match res {
-        Ok(res) => {
-            //println!("Result: {res:?}");
-            res.json::<Vec<u64>>().map_err(anyhow::Error::msg)
+    res.and_then(|res| match res.json::<Option<Vec<u64>>>() {
+        Ok(Some(tokens)) => {
+            println!("Receipts: {res:?}");
+            Ok(tokens)
         }
-        Err(e) => Err(anyhow::Error::msg(format!("Exchange kudos failure: {e:?}"))),
-    }
+        Ok(None) => Err(anyhow::Error::msg(format!(
+            "Failed to exchange kudos. Receipts: {:?}",
+            res.receipt_outcomes(),
+        ))),
+        Err(e) => Err(anyhow::Error::msg(format!(
+            "Failed to deserialize exchange kudos response: {e:?}. Receipts: {:?}",
+            res.receipt_outcomes()
+        ))),
+    })
 }
 
 // TODO: pass iterators instead
