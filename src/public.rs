@@ -2,7 +2,7 @@ use crate::consts::*;
 use crate::external_db::ext_db;
 use crate::registry::{ext_sbtreg, TokenId, TokenMetadata, IS_HUMAN_GAS};
 use crate::settings::Settings;
-use crate::types::{KudosId, MethodResult, PromiseFunctionCall};
+use crate::types::{CommentId, Commentary, KudosId, MethodResult, PromiseFunctionCall};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
 use near_sdk::json_types::Base64VecU8;
@@ -102,10 +102,22 @@ impl Contract {
 
         Settings::from(&self.settings).validate_commentary_text(&text);
 
+        let comment_id = CommentId::from(self.last_incremental_id.inc());
+        let composed_comment = Commentary {
+            sender_id: &sender_id,
+            text: &text,
+        }
+        .compose()
+        .unwrap_or_else(|e| env::panic_str(&e));
         let external_db_id = self.external_db_id()?;
         let root_id = env::current_account_id();
-        let leave_comment_req =
-            build_leave_comment_request(&root_id, &sender_id, &receiver_id, &kudos_id, &text)?;
+        let leave_comment_req = build_leave_comment_request(
+            &root_id,
+            &receiver_id,
+            &kudos_id,
+            &comment_id,
+            composed_comment.as_str(),
+        )?;
         let get_kudos_by_id_req = build_get_kudos_by_id_request(&root_id, &receiver_id, &kudos_id);
 
         let gas_available =
@@ -145,6 +157,7 @@ impl Contract {
                                 "external_db_id": external_db_id.clone(),
                                 "get_kudos_by_id_req": get_kudos_by_id_req,
                                 "leave_comment_req": leave_comment_req,
+                                "comment_id": comment_id,
                             })
                             .to_string()
                             .into_bytes(),
@@ -256,20 +269,19 @@ impl Contract {
             settings.validate_hashtags(hashtags);
         }
 
-        let next_kudos_id = self.last_kudos_id.next();
-        self.last_kudos_id = next_kudos_id.clone();
+        let kudos_id = KudosId::from(self.last_incremental_id.inc());
 
         let external_db_id = self.external_db_id()?;
         let root_id = env::current_account_id();
         let created_at = env::block_timestamp_ms();
         // TODO: move hashtags & kudos objects build after receive IAHRegistry::is_human response
         // to prevent generating Kudos id for not a human accounts
-        let hashtags = build_hashtags(&receiver_id, &next_kudos_id, hashtags)?;
+        let hashtags = build_hashtags(&receiver_id, &kudos_id, hashtags)?;
         let data = build_give_kudos_request(
             &root_id,
             &sender_id,
             &receiver_id,
-            &next_kudos_id,
+            &kudos_id,
             created_at,
             &text,
             &hashtags,
@@ -304,7 +316,7 @@ impl Contract {
                             function_name: "on_kudos_saved".to_owned(),
                             arguments: json!({
                                 "predecessor_account_id": predecessor_account_id,
-                                "kudos_id": next_kudos_id,
+                                "kudos_id": kudos_id,
                             })
                             .to_string()
                             .into_bytes(),
@@ -364,8 +376,9 @@ impl Contract {
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         leave_comment_req: Value,
+        comment_id: CommentId,
         #[callback_result] callback_result: Result<Value, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<u64>> {
+    ) -> PromiseOrValue<MethodResult<CommentId>> {
         let method_result = match callback_result
             .map_err(|e| {
                 MethodResult::Error(format!(
@@ -390,7 +403,7 @@ impl Contract {
                     .then(
                         Self::ext(env::current_account_id())
                             .with_static_gas(COMMENT_SAVED_CALLBACK_GAS)
-                            .on_social_db_data_saved(predecessor_account_id.clone()),
+                            .on_commentary_saved(predecessor_account_id.clone(), comment_id),
                     )
                     .into();
             }
@@ -411,6 +424,24 @@ impl Contract {
     ) -> MethodResult<KudosId> {
         match callback_result {
             Ok(_) => MethodResult::Success(kudos_id),
+            Err(e) => {
+                // Return deposit back to sender if NEAR SocialDb write failure
+                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+
+                MethodResult::Error(format!("SocialDB::set() call failure: {e:?}"))
+            }
+        }
+    }
+
+    #[private]
+    pub fn on_commentary_saved(
+        &mut self,
+        predecessor_account_id: AccountId,
+        comment_id: CommentId,
+        #[callback_result] callback_result: Result<(), PromiseError>,
+    ) -> MethodResult<CommentId> {
+        match callback_result {
+            Ok(_) => MethodResult::Success(comment_id),
             Err(e) => {
                 // Return deposit back to sender if NEAR SocialDb write failure
                 Promise::new(predecessor_account_id).transfer(env::attached_deposit());

@@ -2,7 +2,7 @@ use crate::consts::{EXCHANGE_KUDOS_COST, EXCHANGE_KUDOS_STORAGE};
 use crate::tests::utils::{build_default_context, promise_or_value_into_result, MAX_GAS};
 use crate::types::MethodResult;
 use crate::utils::{build_kudos_upvotes_path, display_deposit_requirement_in_near};
-use crate::{Contract, KudosId, PROOF_OF_KUDOS_SBT_MINT_COST};
+use crate::{Contract, IncrementalUniqueId, KudosId, PROOF_OF_KUDOS_SBT_MINT_COST};
 use near_sdk::serde_json::{json, Value};
 use near_sdk::test_utils::accounts;
 use near_sdk::{
@@ -21,7 +21,7 @@ fn test_required_storage_to_exchange_kudos() {
     let initial_storage = env::storage_usage();
     kudos_contract
         .exchanged_kudos
-        .insert(KudosId::default().next());
+        .insert(IncrementalUniqueId::default().next().into());
     assert_eq!(
         env::storage_usage() - initial_storage,
         EXCHANGE_KUDOS_STORAGE
@@ -43,7 +43,7 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
         AccountId::new_unchecked("iah_registry.near".to_owned()),
     );
 
-    let kudos_id = KudosId::default().next();
+    let kudos_id = KudosId::from(IncrementalUniqueId::default().next());
     let receiver_id = accounts(0);
     let sender_id = accounts(1);
     let kudos_upvotes_path = build_kudos_upvotes_path(&contract_id, &receiver_id, &kudos_id);
@@ -90,7 +90,7 @@ fn test_send_sbt_mint_request_errors() {
         AccountId::new_unchecked("iah_registry.near".to_owned()),
     );
 
-    let kudos_id = KudosId::default().next();
+    let kudos_id = KudosId::from(IncrementalUniqueId::default().next());
     let receiver_id = accounts(0);
     let sender_id = accounts(1);
     let kudos_upvotes_path = build_kudos_upvotes_path(&contract_id, &receiver_id, &kudos_id);
@@ -178,7 +178,7 @@ fn test_on_pok_sbt_mint() {
     );
 
     let sender_id = accounts(0);
-    let kudos_id = KudosId::default().next();
+    let kudos_id = KudosId::from(IncrementalUniqueId::default().next());
 
     struct TestCase<'a, T> {
         name: &'a str,

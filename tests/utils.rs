@@ -1,5 +1,5 @@
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
-use kudos_contract::{KudosId, MethodResult, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST};
+use kudos_contract::{CommentId, KudosId, MethodResult, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -132,7 +132,7 @@ pub async fn give_kudos(
         .into_result()
         .map_err(|e| anyhow::Error::msg(format!("Give kudos failure: {e:?}")));
 
-    res.and_then(|res| match res.json::<MethodResult<KudosId>>() {
+    res.and_then(|res| match res.json::<MethodResult<_>>() {
         Ok(MethodResult::Success(kudos_id)) => Ok(kudos_id),
         Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
             "Failed to give kudos. Error: {e}. Receipts: {:?}",
@@ -164,7 +164,7 @@ pub async fn upvote_kudos(
         .into_result()
         .map_err(|e| anyhow::Error::msg(format!("Upvote kudos failure: {e:?}")));
 
-    res.and_then(|res| match res.json::<MethodResult<u64>>() {
+    res.and_then(|res| match res.json::<MethodResult<_>>() {
         Ok(MethodResult::Success(created_at)) => Ok(created_at),
         Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
             "Failed to upvotes kudos. Error: {e}. Receipts: {:?}",
@@ -183,7 +183,7 @@ pub async fn leave_comment(
     receiver_id: &workspaces::AccountId,
     kudos_id: &KudosId,
     text: &str,
-) -> anyhow::Result<u64> {
+) -> anyhow::Result<CommentId> {
     let res = sender
         .call(kudos_contract_id, "leave_comment")
         .args_json(json!({
@@ -198,7 +198,7 @@ pub async fn leave_comment(
         .into_result()
         .map_err(|e| anyhow::Error::msg(format!("Leave comment failure: {e:?}")));
 
-    res.and_then(|res| match res.json::<MethodResult<u64>>() {
+    res.and_then(|res| match res.json::<MethodResult<_>>() {
         Ok(MethodResult::Success(created_at)) => Ok(created_at),
         Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
             "Failed to leave a comment for kudos. Error: {e}. Receipts: {:?}",
@@ -228,7 +228,7 @@ pub async fn exchange_kudos_for_sbt(
         .into_result()
         .map_err(|e| anyhow::Error::msg(format!("Exchange kudos failure: {e:?}")));
 
-    res.and_then(|res| match res.json::<MethodResult<Vec<u64>>>() {
+    res.and_then(|res| match res.json::<MethodResult<_>>() {
         Ok(MethodResult::Success(tokens)) => Ok(tokens),
         Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
             "Failed to exchange kudos. Error: {e}. Receipts: {:?}",

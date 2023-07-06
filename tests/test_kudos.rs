@@ -1,17 +1,19 @@
+mod types;
 mod utils;
 mod workspaces;
 
+use crate::types::*;
 use crate::utils::*;
 use crate::workspaces::{
     build_contract, gen_user_account, get_block_timestamp, load_contract, transfer_near,
 };
-use kudos_contract::PROOF_OF_KUDOS_SBT_CLASS_ID;
-use kudos_contract::{utils::*, KudosId};
+use kudos_contract::{utils::*, CommentId, KudosId};
+use kudos_contract::{Commentary, PROOF_OF_KUDOS_SBT_CLASS_ID};
 use near_contract_standards::storage_management::StorageBalanceBounds;
 use near_sdk::serde_json::{self, json, Value};
 use near_sdk::{AccountId, ONE_NEAR, ONE_YOCTO};
 use near_units::parse_near;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[tokio::test]
 async fn test_give_kudos() -> anyhow::Result<()> {
@@ -259,12 +261,22 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     assert_eq!(upvotes_json, format!(r#"{{"{}":""}}"#, user3_account.id()));
 
     // User3 leaves a comment to kudos given to User2 by User1
-    let _ = leave_comment(
+    let comment1_id = leave_comment(
         kudos_contract.id(),
         &user3_account,
         user2_account.id(),
         &kudos_id,
         "amazing",
+    )
+    .await?;
+
+    // User3 leaves another comment to kudos given to User2 by User1
+    let comment2_id = leave_comment(
+        kudos_contract.id(),
+        &user3_account,
+        user2_account.id(),
+        &kudos_id,
+        "wow",
     )
     .await?;
 
@@ -278,16 +290,37 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         .json()?;
 
     // remove `/comments` nested key and check for it's value, which should contain User3 who left a comment and a text for kudos
-    let upvotes_json = remove_key_from_json(
+    let comments_json = remove_key_from_json(
         &mut kudos_data,
         &get_kudos_by_id_req.replace("*", "comments"),
     )
-    .unwrap()
-    .to_string();
+    .unwrap();
+    let comments =
+        serde_json::from_value::<HashMap<CommentId, CommentaryRaw>>(comments_json).unwrap();
+
+    // verify first comment
+    let comment = Commentary::from(comments.get(&comment1_id).unwrap());
     assert_eq!(
-        upvotes_json,
-        format!(r#"{{"{}":"amazing"}}"#, user3_account.id())
+        comment.sender_id.as_str(),
+        user3_account
+            .id()
+            .parse::<near_sdk::AccountId>()
+            .unwrap()
+            .as_str()
     );
+    assert_eq!(comment.text, "amazing");
+
+    // verify second comment
+    let comment = Commentary::from(comments.get(&comment2_id).unwrap());
+    assert_eq!(
+        comment.sender_id.as_str(),
+        user3_account
+            .id()
+            .parse::<near_sdk::AccountId>()
+            .unwrap()
+            .as_str()
+    );
+    assert_eq!(comment.text, "wow");
 
     Ok(())
 }

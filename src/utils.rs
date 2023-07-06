@@ -1,6 +1,7 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
-use crate::types::KudosId;
+use crate::types::{IncrementalUniqueId, KudosId};
+use crate::{CommentId, Commentary};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance};
@@ -87,10 +88,10 @@ pub fn build_upvote_kudos_request(
 
 pub fn build_leave_comment_request(
     root_id: &AccountId,
-    sender_id: &AccountId,
     receiver_id: &AccountId,
     kudos_id: &KudosId,
-    text: &str,
+    comment_id: &CommentId,
+    composed_comment: &str,
 ) -> Result<Value, &'static str> {
     serde_json::from_str::<Value>(&format!(
         r#"{{
@@ -99,7 +100,7 @@ pub fn build_leave_comment_request(
               "{receiver_id}": {{
                 "{kudos_id}": {{
                   "comments": {{
-                    "{sender_id}": "{text}"
+                    "{comment_id}": "{composed_comment}"
                   }}
                 }}
               }}
@@ -190,7 +191,7 @@ mod tests {
     #[test]
     fn test_build_hashtags() {
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
-        let next_kudos_id = KudosId::default().next();
+        let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
 
         let json_text = super::build_hashtags(
             &receiver_id,
@@ -214,7 +215,7 @@ mod tests {
         let root_id = AccountId::new_unchecked("kudos.near".to_owned());
         let sender_id = AccountId::new_unchecked("test1.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
-        let next_kudos_id = KudosId::default().next();
+        let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
         let text = "blablabla";
 
         let json_text = serde_json::to_string(
@@ -242,7 +243,7 @@ mod tests {
         let root_id = AccountId::new_unchecked("kudos.near".to_owned());
         let sender_id = AccountId::new_unchecked("test1.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
-        let next_kudos_id = KudosId::default().next();
+        let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
 
         let json_text = serde_json::to_string(
             &super::build_upvote_kudos_request(&root_id, &sender_id, &receiver_id, &next_kudos_id)
@@ -261,15 +262,22 @@ mod tests {
         let root_id = AccountId::new_unchecked("kudos.near".to_owned());
         let sender_id = AccountId::new_unchecked("test1.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
-        let next_kudos_id = KudosId::default().next();
+        let mut unique_id = IncrementalUniqueId::default();
+        let kudos_id = KudosId::from(unique_id.inc());
+        let comment_id = CommentId::from(unique_id.inc());
 
         let json_text = serde_json::to_string(
             &super::build_leave_comment_request(
                 &root_id,
-                &sender_id,
                 &receiver_id,
-                &next_kudos_id,
-                "some commentary text",
+                &kudos_id,
+                &comment_id,
+                &Commentary {
+                    sender_id: &sender_id,
+                    text: "some commentary text",
+                }
+                .compose()
+                .unwrap(),
             )
             .unwrap(),
         )
@@ -277,7 +285,7 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"kudos":{"test2.near":{"1":{"comments":{"test1.near":"some commentary text"}}}}}}"#
+            r#"{"kudos.near":{"kudos":{"test2.near":{"1":{"comments":{"2":"eyJzIjoidGVzdDEubmVhciIsInQiOiJzb21lIGNvbW1lbnRhcnkgdGV4dCJ9"}}}}}}"#
         );
     }
 
@@ -285,7 +293,7 @@ mod tests {
     fn test_build_verify_kudos_id_request() {
         let root_id = AccountId::new_unchecked("kudos.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
-        let next_kudos_id = KudosId::default().next();
+        let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
         assert_eq!(
             &super::build_get_kudos_by_id_request(&root_id, &receiver_id, &next_kudos_id),
             "kudos.near/kudos/test2.near/1/*"

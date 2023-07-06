@@ -2,6 +2,7 @@ use crate::external_db::ext_db;
 use crate::misc::RunningState;
 use crate::settings::{Settings, SettingsView, VSettings};
 use crate::types::{KudosId, StorageKey};
+use crate::IncrementalUniqueId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::store::{LookupMap, LookupSet};
 use near_sdk::{
@@ -16,7 +17,7 @@ pub struct Contract {
     /// Contract's state, e.g. running, paused
     pub(crate) running_state: RunningState,
     /// Last Kudos unique identifier used to get next incremented unique id
-    pub(crate) last_kudos_id: KudosId,
+    pub(crate) last_incremental_id: IncrementalUniqueId,
     pub(crate) external_db_id: Option<AccountId>,
     pub(crate) iah_registry: AccountId,
     pub(crate) settings: VSettings,
@@ -31,7 +32,7 @@ impl Contract {
         Self {
             owner_id: owner_id.unwrap_or_else(env::predecessor_account_id),
             running_state: RunningState::Running,
-            last_kudos_id: KudosId::default(),
+            last_incremental_id: IncrementalUniqueId::default(),
             external_db_id: None,
             iah_registry,
             settings: Settings::default().into(),
