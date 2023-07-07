@@ -185,12 +185,12 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     */
     // User1 gives kudos to User2
     let hashtags = (0..3).map(|n| format!("ht{n}")).collect::<Vec<_>>();
-    let kudos_text = "blablabla blablabla";
+    let kudos_message = "blablabla blablabla";
     let kudos_id = give_kudos(
         kudos_contract.id(),
         &user1_account,
         user2_account.id(),
-        &kudos_text,
+        &kudos_message,
         hashtags.iter().map(|s| s.as_str()).collect(),
     )
     .await?;
@@ -226,7 +226,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     assert_eq!(
         kudos_data.to_string(),
         format!(
-            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"sender_id":"{}","text":"{kudos_text}"}}}}}}}}}}"#,
+            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"message":"{kudos_message}","sender_id":"{}"}}}}}}}}}}"#,
             kudos_contract.id(),
             user2_account.id(),
             user1_account.id()
@@ -289,7 +289,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    // remove `/comments` nested key and check for it's value, which should contain User3 who left a comment and a text for kudos
+    // remove `/comments` nested key and check for it's value, which should contain User3 who left a comment and a message for kudos
     let comments_json = remove_key_from_json(
         &mut kudos_data,
         &get_kudos_by_id_req.replace("*", "comments"),
@@ -308,7 +308,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .as_str()
     );
-    assert_eq!(comment.text, "amazing");
+    assert_eq!(comment.message, "amazing");
 
     // verify second comment
     let comment = Commentary::from(comments.get(&comment2_id).unwrap());
@@ -320,7 +320,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .as_str()
     );
-    assert_eq!(comment.text, "wow");
+    assert_eq!(comment.message, "wow");
 
     Ok(())
 }

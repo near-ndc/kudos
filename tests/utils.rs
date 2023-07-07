@@ -115,14 +115,14 @@ pub async fn give_kudos(
     kudos_contract_id: &workspaces::AccountId,
     sender: &workspaces::Account,
     receiver_id: &workspaces::AccountId,
-    text: &str,
+    message: &str,
     hashtags: Vec<&str>,
 ) -> anyhow::Result<KudosId> {
     let res = sender
         .call(kudos_contract_id, "give_kudos")
         .args_json(json!({
             "receiver_id": receiver_id,
-            "text": text,
+            "message": message,
             "hashtags": hashtags,
         }))
         .deposit(GIVE_KUDOS_COST)
@@ -182,14 +182,14 @@ pub async fn leave_comment(
     sender: &workspaces::Account,
     receiver_id: &workspaces::AccountId,
     kudos_id: &KudosId,
-    text: &str,
+    message: &str,
 ) -> anyhow::Result<CommentId> {
     let res = sender
         .call(kudos_contract_id, "leave_comment")
         .args_json(json!({
             "receiver_id": receiver_id,
             "kudos_id": kudos_id,
-            "text": text,
+            "message": message,
         }))
         .deposit(ONE_NEAR)
         .max_gas()

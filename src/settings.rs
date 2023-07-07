@@ -5,7 +5,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct Settings {
-    pub commentary_text_max_length: u16,
+    pub commentary_message_max_length: u16,
     pub max_number_of_hashtags_per_kudos: u8,
     pub hashtag_text_max_length: u8,
     pub min_number_of_upvotes_to_exchange_kudos: u8,
@@ -24,7 +24,7 @@ pub enum VSettings {
 #[serde(crate = "near_sdk::serde", rename_all = "camelCase")]
 pub struct SettingsView {
     #[serde(default = "opt_default", skip_serializing_if = "Option::is_none")]
-    pub commentary_text_max_length: Option<u16>,
+    pub commentary_message_max_length: Option<u16>,
     #[serde(default = "opt_default", skip_serializing_if = "Option::is_none")]
     pub max_number_of_hashtags_per_kudos: Option<u8>,
     #[serde(default = "opt_default", skip_serializing_if = "Option::is_none")]
@@ -38,8 +38,8 @@ pub struct SettingsView {
 impl Settings {
     /// Apply optionally provided changes to settings
     fn apply_changes(mut self, settings_json: SettingsView) -> Self {
-        if let Some(commentary_text_max_length) = settings_json.commentary_text_max_length {
-            self.commentary_text_max_length = commentary_text_max_length;
+        if let Some(commentary_message_max_length) = settings_json.commentary_message_max_length {
+            self.commentary_message_max_length = commentary_message_max_length;
         }
 
         if let Some(max_number_of_hashtags_per_kudos) =
@@ -79,9 +79,9 @@ impl Settings {
         }
     }
 
-    pub(crate) fn validate_commentary_text(&self, text: &str) {
+    pub(crate) fn validate_commentary_message(&self, text: &str) {
         require!(
-            text.len() <= self.commentary_text_max_length as usize,
+            text.len() <= self.commentary_message_max_length as usize,
             "Commentary text max length exceeded"
         );
     }
@@ -104,7 +104,7 @@ impl VSettings {
     }
 }
 
-fn default_commentary_text_max_length() -> u16 {
+fn default_commentary_message_max_length() -> u16 {
     1000
 }
 
@@ -127,7 +127,7 @@ fn default_pok_sbt_ttl() -> u64 {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            commentary_text_max_length: default_commentary_text_max_length(),
+            commentary_message_max_length: default_commentary_message_max_length(),
             max_number_of_hashtags_per_kudos: default_max_number_of_hashtags_per_kudos(),
             hashtag_text_max_length: default_hashtag_text_max_length(),
             min_number_of_upvotes_to_exchange_kudos:
@@ -159,7 +159,7 @@ impl From<Settings> for VSettings {
 impl From<Settings> for SettingsView {
     fn from(settings: Settings) -> Self {
         Self {
-            commentary_text_max_length: Some(settings.commentary_text_max_length),
+            commentary_message_max_length: Some(settings.commentary_message_max_length),
             max_number_of_hashtags_per_kudos: Some(settings.max_number_of_hashtags_per_kudos),
             hashtag_text_max_length: Some(settings.hashtag_text_max_length),
             min_number_of_upvotes_to_exchange_kudos: Some(

@@ -1,18 +1,21 @@
 use kudos_contract::Commentary;
+use near_sdk::json_types::U64;
 use near_sdk::serde::{self, Deserialize};
 use near_sdk::{serde_json, AccountId};
 
 #[derive(Debug, PartialEq)]
 pub struct CommentaryRaw {
+    pub message: String,
     pub sender_id: AccountId,
-    pub text: String,
+    pub timestamp: U64,
 }
 
 impl<'a> From<&'a CommentaryRaw> for Commentary<'a> {
     fn from(value: &'a CommentaryRaw) -> Self {
         Self {
+            message: &value.message,
             sender_id: &value.sender_id,
-            text: &value.text,
+            timestamp: value.timestamp,
         }
     }
 }
@@ -38,14 +41,21 @@ impl<'de> Deserialize<'de> for CommentaryRaw {
             })?
             .as_object_mut()
             .and_then(|map| {
+                let message = map
+                    .remove("m")
+                    .and_then(|v| serde_json::from_value::<String>(v).ok())?;
                 let sender_id = map
                     .remove("s")
-                    .and_then(|s| serde_json::from_value::<AccountId>(s).ok())?;
-                let text = map
+                    .and_then(|v| serde_json::from_value::<AccountId>(v).ok())?;
+                let timestamp = map
                     .remove("t")
-                    .and_then(|s| serde_json::from_value::<String>(s).ok())?;
+                    .and_then(|v| serde_json::from_value::<U64>(v).ok())?;
 
-                Some(Self { sender_id, text })
+                Some(Self {
+                    sender_id,
+                    message,
+                    timestamp,
+                })
             })
             .ok_or_else(|| serde::de::Error::custom("Failure to deserialize commentary from json"))
     }

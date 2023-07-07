@@ -86,7 +86,7 @@ impl Contract {
         &mut self,
         receiver_id: AccountId,
         kudos_id: KudosId,
-        text: String,
+        message: String,
     ) -> Result<Promise, &'static str> {
         self.assert_contract_running();
 
@@ -100,12 +100,13 @@ impl Contract {
         // TODO: check for minimum required deposit
         // TODO: check for minimum required gas
 
-        Settings::from(&self.settings).validate_commentary_text(&text);
+        Settings::from(&self.settings).validate_commentary_message(&message);
 
         let comment_id = CommentId::from(self.last_incremental_id.inc());
         let composed_comment = Commentary {
             sender_id: &sender_id,
-            text: &text,
+            message: &message,
+            timestamp: env::block_timestamp_ms().into(),
         }
         .compose()
         .unwrap_or_else(|e| env::panic_str(&e));
@@ -244,7 +245,7 @@ impl Contract {
     pub fn give_kudos(
         &mut self,
         receiver_id: AccountId,
-        text: String,
+        message: String,
         hashtags: Option<Vec<String>>,
     ) -> Result<Promise, &'static str> {
         self.assert_contract_running();
@@ -264,7 +265,7 @@ impl Contract {
         // TODO: check for minimum required gas
 
         let settings = Settings::from(&self.settings);
-        settings.validate_commentary_text(&text);
+        settings.validate_commentary_message(&message);
         if let Some(hashtags) = hashtags.as_ref() {
             settings.validate_hashtags(hashtags);
         }
@@ -283,7 +284,7 @@ impl Contract {
             &receiver_id,
             &kudos_id,
             created_at,
-            &text,
+            &message,
             &hashtags,
         )?;
 

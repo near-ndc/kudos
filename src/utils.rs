@@ -37,7 +37,7 @@ pub fn build_give_kudos_request(
     receiver_id: &AccountId,
     kudos_id: &KudosId,
     created_at: u64,
-    text: &str,
+    message: &str,
     hashtags: &str,
 ) -> Result<Value, &'static str> {
     // TODO: verify text & hashtags for not acceptable symbols
@@ -49,7 +49,7 @@ pub fn build_give_kudos_request(
                 "{kudos_id}": {{
                   "created_at": "{created_at}",
                   "sender_id": "{sender_id}",
-                  "text": "{text}",
+                  "message": "{message}",
                   "upvotes": {{}},
                   "comments": {{}}
                 }}
@@ -185,6 +185,7 @@ pub fn display_deposit_in_near(value: Balance) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use near_sdk::json_types::U64;
     use near_sdk::serde_json::json;
     use near_units::parse_near;
 
@@ -234,7 +235,7 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"hashtags":{},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","sender_id":"test1.near","text":"blablabla","upvotes":{}}}}}}"#
+            r#"{"kudos.near":{"hashtags":{},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","message":"blablabla","sender_id":"test1.near","upvotes":{}}}}}}"#
         );
     }
 
@@ -274,7 +275,8 @@ mod tests {
                 &comment_id,
                 &Commentary {
                     sender_id: &sender_id,
-                    text: "some commentary text",
+                    message: "some commentary text",
+                    timestamp: U64(1234567890),
                 }
                 .compose()
                 .unwrap(),
@@ -285,7 +287,7 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"kudos":{"test2.near":{"1":{"comments":{"2":"eyJzIjoidGVzdDEubmVhciIsInQiOiJzb21lIGNvbW1lbnRhcnkgdGV4dCJ9"}}}}}}"#
+            r#"{"kudos.near":{"kudos":{"test2.near":{"1":{"comments":{"2":"eyJtIjoic29tZSBjb21tZW50YXJ5IHRleHQiLCJzIjoidGVzdDEubmVhciIsInQiOiIxMjM0NTY3ODkwIn0="}}}}}}"#
         );
     }
 

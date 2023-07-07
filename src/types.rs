@@ -114,8 +114,9 @@ impl<T> MethodResult<T> {
 
 #[derive(Debug, PartialEq)]
 pub struct Commentary<'a> {
+    pub message: &'a str,
     pub sender_id: &'a AccountId,
-    pub text: &'a str,
+    pub timestamp: U64,
 }
 
 impl<'a> Commentary<'_> {
@@ -137,8 +138,9 @@ impl Serialize for Commentary<'_> {
     {
         let encoded = near_sdk::base64::encode(
             json!({
+                "m": self.message,
                 "s": self.sender_id,
-                "t": self.text,
+                "t": self.timestamp
             })
             .to_string(),
         );
@@ -150,19 +152,21 @@ impl Serialize for Commentary<'_> {
 #[cfg(test)]
 mod tests {
     use crate::Commentary;
+    use near_sdk::json_types::U64;
     use near_sdk::AccountId;
 
     #[test]
     fn test_commentary_ser() {
         let comment = Commentary {
             sender_id: &AccountId::new_unchecked("user.near".to_owned()),
-            text: "commentary test",
+            message: "commentary test",
+            timestamp: U64(1234567890),
         }
         .compose()
         .unwrap();
         assert_eq!(
             comment.as_str(),
-            "eyJzIjoidXNlci5uZWFyIiwidCI6ImNvbW1lbnRhcnkgdGVzdCJ9"
+            "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicyI6InVzZXIubmVhciIsInQiOiIxMjM0NTY3ODkwIn0="
         );
     }
 }
