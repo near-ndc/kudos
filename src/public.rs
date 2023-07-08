@@ -100,12 +100,10 @@ impl Contract {
         // TODO: check for minimum required deposit
         // TODO: check for minimum required gas
 
-        Settings::from(&self.settings).validate_commentary_message(&message);
-
         let comment_id = CommentId::from(self.last_incremental_id.inc());
         let composed_comment = Commentary {
             sender_id: &sender_id,
-            message: &message,
+            message: &Settings::from(&self.settings).validate_commentary_message(&message)?,
             timestamp: env::block_timestamp_ms().into(),
         }
         .compose()
@@ -265,11 +263,7 @@ impl Contract {
         // TODO: check for minimum required gas
 
         let settings = Settings::from(&self.settings);
-        settings.validate_commentary_message(&message);
-        if let Some(hashtags) = hashtags.as_ref() {
-            settings.validate_hashtags(hashtags);
-        }
-
+        let valid_hashtags = settings.validate_hashtags(hashtags.as_deref())?;
         let kudos_id = KudosId::from(self.last_incremental_id.inc());
 
         let external_db_id = self.external_db_id()?;
@@ -277,14 +271,14 @@ impl Contract {
         let created_at = env::block_timestamp_ms();
         // TODO: move hashtags & kudos objects build after receive IAHRegistry::is_human response
         // to prevent generating Kudos id for not a human accounts
-        let hashtags = build_hashtags(&receiver_id, &kudos_id, hashtags)?;
+        let hashtags = build_hashtags(&receiver_id, &kudos_id, valid_hashtags)?;
         let data = build_give_kudos_request(
             &root_id,
             &sender_id,
             &receiver_id,
             &kudos_id,
             created_at,
-            &message,
+            &settings.validate_commentary_message(&message)?,
             &hashtags,
         )?;
 

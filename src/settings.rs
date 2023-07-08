@@ -1,7 +1,9 @@
 use crate::utils::opt_default;
+use crate::Hashtag;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::require;
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::serde_json::{self, Value};
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct Settings {
@@ -65,25 +67,40 @@ impl Settings {
         self
     }
 
-    pub(crate) fn validate_hashtags(&self, hashtags: &[String]) {
-        require!(
-            hashtags.len() <= self.max_number_of_hashtags_per_kudos as usize,
-            "Maximum number of hashtags per Kudos exceeded"
-        );
+    pub(crate) fn validate_hashtags(
+        &self,
+        hashtags: Option<&[String]>,
+    ) -> Result<Option<Vec<Hashtag>>, &'static str> {
+        match hashtags {
+            None => Ok(None),
+            Some(hashtags) if hashtags.len() > self.max_number_of_hashtags_per_kudos as usize => {
+                Err("Maximum number of hashtags per Kudos exceeded")
+            }
+            Some(hashtags) => hashtags
+                .into_iter()
+                .map(|ht_text| {
+                    if ht_text.len() > self.hashtag_text_max_length as usize {
+                        return Err("Hashtag max text length exceeded");
+                    }
 
-        for hashtag in hashtags {
-            require!(
-                hashtag.len() <= self.hashtag_text_max_length as usize,
-                "Hashtag max text length exceeded"
-            );
+                    Hashtag::try_from(ht_text.as_str())
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(|hashtags| Some(hashtags)),
         }
     }
 
-    pub(crate) fn validate_commentary_message(&self, text: &str) {
-        require!(
-            text.len() <= self.commentary_message_max_length as usize,
-            "Commentary text max length exceeded"
-        );
+    pub(crate) fn validate_commentary_message(
+        &self,
+        message: &str,
+    ) -> Result<String, &'static str> {
+        let escaped_message = message.escape_default().to_string();
+
+        if escaped_message.len() > self.commentary_message_max_length as usize {
+            return Err("Commentary message max length exceeded");
+        }
+
+        Ok(escaped_message)
     }
 
     pub(crate) fn verify_number_of_upvotes_to_exchange_kudos(&self, upvotes: usize) -> bool {
@@ -167,5 +184,46 @@ impl From<Settings> for SettingsView {
             ),
             pok_sbt_ttl: Some(settings.pok_sbt_ttl),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::settings::Settings;
+    use assert_matches::assert_matches;
+
+    #[test]
+    fn test_validate_hashtags() {
+        let settings = Settings::default();
+        assert_matches!(settings.validate_hashtags(None), Ok(None));
+        assert_matches!(settings.validate_hashtags(Some(&vec![])), Ok(Some(_)));
+        assert_matches!(
+            settings.validate_hashtags(Some(vec!["abc".to_owned(), "1Def".to_owned()].as_slice())),
+            Ok(Some(_))
+        );
+        assert_matches!(
+            settings.validate_hashtags(Some(vec!["abc".to_owned(), "@ABC".to_owned()].as_slice())),
+            Err(_)
+        );
+        assert_matches!(
+            settings.validate_hashtags(Some(vec!["a".repeat(33).to_owned()].as_slice())),
+            Err(_)
+        );
+    }
+
+    #[test]
+    fn test_validate_commentary_message() {
+        let settings = Settings::default();
+        assert_matches!(settings.validate_commentary_message("valid message"), Ok(_));
+        assert_matches!(settings.validate_commentary_message("v@lid me$$age"), Ok(_));
+        assert_matches!(settings.validate_commentary_message(r#""quoted_message""#), Ok(s) if s.as_str() == "\\\"quoted_message\\\"");
+        assert_matches!(
+            settings.validate_commentary_message(&"b".repeat(999)),
+            Ok(_)
+        );
+        assert_matches!(
+            settings.validate_commentary_message(&"a".repeat(2000)),
+            Err(_)
+        );
     }
 }

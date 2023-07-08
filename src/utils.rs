@@ -1,7 +1,7 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
 use crate::types::{IncrementalUniqueId, KudosId};
-use crate::{CommentId, Commentary};
+use crate::{CommentId, Commentary, Hashtag};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance};
@@ -9,14 +9,13 @@ use near_sdk::{AccountId, Balance};
 pub fn build_hashtags(
     receiver_id: &AccountId,
     kudos_id: &KudosId,
-    hashtags: Option<Vec<String>>,
+    hashtags: Option<Vec<Hashtag>>,
 ) -> Result<String, &'static str> {
     hashtags
         .map(|hashtags| {
             hashtags
                 .into_iter()
                 .map(|ht| {
-                    // TODO: verify hashtag for valid symbols (a-z)
                     serde_json::from_str::<Value>(&format!(
                         r#"{{
                           "{kudos_id}": "{receiver_id}"
@@ -184,6 +183,8 @@ pub fn display_deposit_in_near(value: Balance) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::settings::Settings;
+
     use super::*;
     use near_sdk::json_types::U64;
     use near_sdk::serde_json::json;
@@ -198,9 +199,9 @@ mod tests {
             &receiver_id,
             &next_kudos_id,
             Some(vec![
-                "hashtaga".to_owned(),
-                "hashtagb".to_owned(),
-                "hashtagc".to_owned(),
+                Hashtag::try_from("hashtaga").unwrap(),
+                Hashtag::try_from("hashtagb").unwrap(),
+                Hashtag::try_from("hashtagc").unwrap(),
             ]),
         )
         .unwrap();
@@ -217,7 +218,9 @@ mod tests {
         let sender_id = AccountId::new_unchecked("test1.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
         let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
-        let text = "blablabla";
+        let message = Settings::default()
+            .validate_commentary_message(r#""a","b":{"t":"multi\nline"},"#)
+            .unwrap();
 
         let json_text = serde_json::to_string(
             &super::build_give_kudos_request(
@@ -226,7 +229,7 @@ mod tests {
                 &receiver_id,
                 &next_kudos_id,
                 1234567890u64,
-                text,
+                &message,
                 "{}",
             )
             .unwrap(),
@@ -235,7 +238,7 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"hashtags":{},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","message":"blablabla","sender_id":"test1.near","upvotes":{}}}}}}"#
+            r#"{"kudos.near":{"hashtags":{},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","upvotes":{}}}}}}"#
         );
     }
 

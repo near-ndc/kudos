@@ -149,9 +149,44 @@ impl Serialize for Commentary<'_> {
     }
 }
 
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Serialize,
+    Deserialize,
+    Clone,
+    Debug,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+)]
+#[serde(crate = "near_sdk::serde")]
+pub struct Hashtag(String);
+
+impl TryFrom<&String> for Hashtag {
+    type Error = &'static str;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&str> for Hashtag {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if value.contains(|c: char| !c.is_ascii_alphanumeric()) {
+            return Err("Non-alphanumeric characters are not allowed in hashtag");
+        }
+
+        Ok(Self(value.to_owned()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::Commentary;
+    use crate::{Commentary, Hashtag};
     use near_sdk::json_types::U64;
     use near_sdk::AccountId;
 
@@ -168,5 +203,13 @@ mod tests {
             comment.as_str(),
             "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicyI6InVzZXIubmVhciIsInQiOiIxMjM0NTY3ODkwIn0="
         );
+    }
+
+    #[test]
+    fn test_hashtag_from_str() {
+        assert!(Hashtag::try_from("validhashtag").is_ok());
+        assert!(Hashtag::try_from("val1dhAshta9").is_ok());
+        assert!(Hashtag::try_from("invalid_hashtag").is_err());
+        assert!(Hashtag::try_from("invalidha$ht@g").is_err());
     }
 }

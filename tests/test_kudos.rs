@@ -185,7 +185,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     */
     // User1 gives kudos to User2
     let hashtags = (0..3).map(|n| format!("ht{n}")).collect::<Vec<_>>();
-    let kudos_message = "blablabla blablabla";
+    let kudos_message = "test\",\n\"a\":{\"b\":\"test2\"},\"c\":\"msg";
     let kudos_id = give_kudos(
         kudos_contract.id(),
         &user1_account,
@@ -223,10 +223,11 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     .map(|map| map.keys().cloned().collect::<Vec<_>>());
     assert_eq!(extracted_hashtags, Some(hashtags));
 
+    let escaped_kudos_message = kudos_message.escape_default().to_string();
     assert_eq!(
         kudos_data.to_string(),
         format!(
-            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"message":"{kudos_message}","sender_id":"{}"}}}}}}}}}}"#,
+            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"message":"{escaped_kudos_message}","sender_id":"{}"}}}}}}}}}}"#,
             kudos_contract.id(),
             user2_account.id(),
             user1_account.id()
