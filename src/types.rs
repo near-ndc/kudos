@@ -114,7 +114,7 @@ impl<T> MethodResult<T> {
 
 #[derive(Debug, PartialEq)]
 pub struct Commentary<'a> {
-    pub message: &'a str,
+    pub message: &'a EscapedMessage,
     pub sender_id: &'a AccountId,
     pub timestamp: U64,
 }
@@ -138,7 +138,7 @@ impl Serialize for Commentary<'_> {
     {
         let encoded = near_sdk::base64::encode(
             json!({
-                "m": self.message,
+                "m": self.message.as_str(),
                 "s": self.sender_id,
                 "t": self.timestamp
             })
@@ -184,9 +184,40 @@ impl TryFrom<&str> for Hashtag {
     }
 }
 
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct EscapedMessage(String);
+
+impl EscapedMessage {
+    pub fn new(message: &str, max_lenth: usize) -> Result<Self, &'static str> {
+        let escaped_message = message.escape_default().to_string();
+
+        if escaped_message.len() > max_lenth {
+            return Err("Message max length exceeded");
+        }
+
+        Ok(Self(escaped_message))
+    }
+
+    pub fn new_unchecked(message: &str) -> Self {
+        Self(message.escape_default().to_string())
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl Display for EscapedMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{Commentary, Hashtag};
+    use crate::{Commentary, EscapedMessage, Hashtag};
+    use assert_matches::assert_matches;
     use near_sdk::json_types::U64;
     use near_sdk::AccountId;
 
@@ -194,7 +225,7 @@ mod tests {
     fn test_commentary_ser() {
         let comment = Commentary {
             sender_id: &AccountId::new_unchecked("user.near".to_owned()),
-            message: "commentary test",
+            message: &EscapedMessage::new("commentary test", 1000).unwrap(),
             timestamp: U64(1234567890),
         }
         .compose()
@@ -211,5 +242,14 @@ mod tests {
         assert!(Hashtag::try_from("val1dhAshta9").is_ok());
         assert!(Hashtag::try_from("invalid_hashtag").is_err());
         assert!(Hashtag::try_from("invalidha$ht@g").is_err());
+    }
+
+    #[test]
+    fn test_escaped_message() {
+        assert_matches!(EscapedMessage::new("valid message", 1000), Ok(_));
+        assert_matches!(EscapedMessage::new("v@lid me$$age", 1000), Ok(_));
+        assert_matches!(EscapedMessage::new(r#""quoted_message""#, 1000), Ok(s) if s.0.as_str() == "\\\"quoted_message\\\"");
+        assert_matches!(EscapedMessage::new(&"b".repeat(32), 32), Ok(_));
+        assert_matches!(EscapedMessage::new(&"a".repeat(32), 31), Err(_));
     }
 }

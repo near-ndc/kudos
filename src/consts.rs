@@ -32,8 +32,9 @@ pub const GIVE_KUDOS_COST: Balance = 88_000_000_000_000_000_000_000; // 0.088 NE
 // TODO: compute valid gas usage
 pub const HUMANITY_VERIFIED_RESERVED_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 
-pub const KUDOS_SAVED_CALLBACK_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
-pub const GIVE_KUDOS_RESERVED_GAS: Gas = Gas(20 * Gas::ONE_TERA.0);
+pub const SAVE_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
+pub const KUDOS_SAVED_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
+pub const GIVE_KUDOS_RESERVED_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 
 pub const VERIFY_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 

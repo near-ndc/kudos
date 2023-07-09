@@ -90,19 +90,6 @@ impl Settings {
         }
     }
 
-    pub(crate) fn validate_commentary_message(
-        &self,
-        message: &str,
-    ) -> Result<String, &'static str> {
-        let escaped_message = message.escape_default().to_string();
-
-        if escaped_message.len() > self.commentary_message_max_length as usize {
-            return Err("Commentary message max length exceeded");
-        }
-
-        Ok(escaped_message)
-    }
-
     pub(crate) fn verify_number_of_upvotes_to_exchange_kudos(&self, upvotes: usize) -> bool {
         upvotes >= self.min_number_of_upvotes_to_exchange_kudos as usize
     }
@@ -207,22 +194,6 @@ mod tests {
         );
         assert_matches!(
             settings.validate_hashtags(Some(vec!["a".repeat(33).to_owned()].as_slice())),
-            Err(_)
-        );
-    }
-
-    #[test]
-    fn test_validate_commentary_message() {
-        let settings = Settings::default();
-        assert_matches!(settings.validate_commentary_message("valid message"), Ok(_));
-        assert_matches!(settings.validate_commentary_message("v@lid me$$age"), Ok(_));
-        assert_matches!(settings.validate_commentary_message(r#""quoted_message""#), Ok(s) if s.as_str() == "\\\"quoted_message\\\"");
-        assert_matches!(
-            settings.validate_commentary_message(&"b".repeat(999)),
-            Ok(_)
-        );
-        assert_matches!(
-            settings.validate_commentary_message(&"a".repeat(2000)),
             Err(_)
         );
     }

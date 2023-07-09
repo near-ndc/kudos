@@ -1,11 +1,11 @@
-use kudos_contract::Commentary;
+use kudos_contract::{Commentary, EscapedMessage};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{self, Deserialize};
 use near_sdk::{serde_json, AccountId};
 
 #[derive(Debug, PartialEq)]
 pub struct CommentaryRaw {
-    pub message: String,
+    pub message: EscapedMessage,
     pub sender_id: AccountId,
     pub timestamp: U64,
 }
@@ -53,7 +53,7 @@ impl<'de> Deserialize<'de> for CommentaryRaw {
 
                 Some(Self {
                     sender_id,
-                    message,
+                    message: EscapedMessage::new_unchecked(&message),
                     timestamp,
                 })
             })

@@ -309,7 +309,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .as_str()
     );
-    assert_eq!(comment.message, "amazing");
+    assert_eq!(comment.message.as_str(), "amazing");
 
     // verify second comment
     let comment = Commentary::from(comments.get(&comment2_id).unwrap());
@@ -321,7 +321,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .as_str()
     );
-    assert_eq!(comment.message, "wow");
+    assert_eq!(comment.message.as_str(), "wow");
 
     Ok(())
 }

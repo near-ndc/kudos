@@ -1,8 +1,8 @@
-use crate::consts::*;
 use crate::external_db::ext_db;
 use crate::registry::{ext_sbtreg, TokenId, TokenMetadata, IS_HUMAN_GAS};
 use crate::settings::Settings;
 use crate::types::{CommentId, Commentary, KudosId, MethodResult, PromiseFunctionCall};
+use crate::{consts::*, EscapedMessage, Hashtag};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
 use near_sdk::json_types::Base64VecU8;
@@ -103,7 +103,10 @@ impl Contract {
         let comment_id = CommentId::from(self.last_incremental_id.inc());
         let composed_comment = Commentary {
             sender_id: &sender_id,
-            message: &Settings::from(&self.settings).validate_commentary_message(&message)?,
+            message: &EscapedMessage::new(
+                &message,
+                Settings::from(&self.settings).commentary_message_max_length as usize,
+            )?,
             timestamp: env::block_timestamp_ms().into(),
         }
         .compose()
@@ -263,29 +266,14 @@ impl Contract {
         // TODO: check for minimum required gas
 
         let settings = Settings::from(&self.settings);
-        let valid_hashtags = settings.validate_hashtags(hashtags.as_deref())?;
-        let kudos_id = KudosId::from(self.last_incremental_id.inc());
+        let hashtags = settings.validate_hashtags(hashtags.as_deref())?;
+        let message =
+            EscapedMessage::new(&message, settings.commentary_message_max_length as usize)?;
 
-        let external_db_id = self.external_db_id()?;
-        let root_id = env::current_account_id();
-        let created_at = env::block_timestamp_ms();
-        // TODO: move hashtags & kudos objects build after receive IAHRegistry::is_human response
-        // to prevent generating Kudos id for not a human accounts
-        let hashtags = build_hashtags(&receiver_id, &kudos_id, valid_hashtags)?;
-        let data = build_give_kudos_request(
-            &root_id,
-            &sender_id,
-            &receiver_id,
-            &kudos_id,
-            created_at,
-            &settings.validate_commentary_message(&message)?,
-            &hashtags,
-        )?;
+        let external_db_id = self.external_db_id()?.clone();
 
         let gas_available =
             env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + GIVE_KUDOS_RESERVED_GAS);
-        let save_kudos_gas =
-            gas_available - (HUMANITY_VERIFIED_RESERVED_GAS + KUDOS_SAVED_CALLBACK_GAS);
 
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
             .with_static_gas(IS_HUMAN_GAS)
@@ -293,31 +281,13 @@ impl Contract {
             .then(
                 Self::ext(env::current_account_id())
                     .with_static_gas(gas_available)
-                    .on_humanity_verified(
+                    .with_attached_deposit(env::attached_deposit())
+                    .save_kudos(
                         predecessor_account_id.clone(),
-                        PromiseFunctionCall {
-                            contract_id: external_db_id.clone(),
-                            function_name: "set".to_owned(),
-                            arguments: json!({
-                                "data": data,
-                            })
-                            .to_string()
-                            .into_bytes(),
-                            attached_deposit: Some(env::attached_deposit()),
-                            static_gas: save_kudos_gas,
-                        },
-                        PromiseFunctionCall {
-                            contract_id: env::current_account_id(),
-                            function_name: "on_kudos_saved".to_owned(),
-                            arguments: json!({
-                                "predecessor_account_id": predecessor_account_id,
-                                "kudos_id": kudos_id,
-                            })
-                            .to_string()
-                            .into_bytes(),
-                            attached_deposit: None,
-                            static_gas: KUDOS_SAVED_CALLBACK_GAS,
-                        },
+                        external_db_id,
+                        receiver_id,
+                        message,
+                        hashtags,
                     ),
             ))
     }
@@ -408,6 +378,62 @@ impl Contract {
         Promise::new(predecessor_account_id).transfer(env::attached_deposit());
 
         PromiseOrValue::Value(method_result)
+    }
+
+    #[private]
+    #[payable]
+    pub fn save_kudos(
+        &mut self,
+        predecessor_account_id: AccountId,
+        external_db_id: AccountId,
+        receiver_id: AccountId,
+        message: EscapedMessage,
+        hashtags: Option<Vec<Hashtag>>,
+        #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
+    ) -> PromiseOrValue<MethodResult<KudosId>> {
+        let result = callback_result
+            .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
+            .and_then(|tokens| {
+                if tokens.is_empty() {
+                    return Err("IAHRegistry::is_human() returns result: Not a human".to_owned());
+                }
+
+                let sender_id = env::signer_account_id();
+                let root_id = env::current_account_id();
+                let created_at = env::block_timestamp_ms();
+                let kudos_id = KudosId::from(self.last_incremental_id.inc());
+                let hashtags = build_hashtags(&receiver_id, &kudos_id, hashtags)?;
+                let kudos_json = build_give_kudos_request(
+                    &root_id,
+                    &sender_id,
+                    &receiver_id,
+                    &kudos_id,
+                    created_at,
+                    &message,
+                    &hashtags,
+                )?;
+
+                let save_kudos_gas =
+                    env::prepaid_gas() - (SAVE_KUDOS_RESERVED_GAS + KUDOS_SAVED_CALLBACK_GAS);
+
+                Ok(ext_db::ext(external_db_id)
+                    .with_static_gas(save_kudos_gas)
+                    .with_attached_deposit(env::attached_deposit())
+                    .set(kudos_json)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(KUDOS_SAVED_CALLBACK_GAS)
+                            .on_kudos_saved(predecessor_account_id.clone(), kudos_id),
+                    ))
+            });
+
+        match result {
+            Ok(promise) => promise.into(),
+            Err(e) => {
+                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                PromiseOrValue::Value(MethodResult::Error(e))
+            }
+        }
     }
 
     #[private]
@@ -555,7 +581,6 @@ impl Contract {
         callback_promise: PromiseFunctionCall,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
     ) -> PromiseOrValue<Option<KudosId>> {
-        //env::log_str(&format!("IAHRegistry::is_human(): {callback_result:?}"));
         let promise: Option<Promise> = match callback_result {
             Ok(res) if res.is_empty() => {
                 env::log_str("IAHRegistry::is_human() returns result: Not a human");

@@ -1,7 +1,7 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
 use crate::types::{IncrementalUniqueId, KudosId};
-use crate::{CommentId, Commentary, Hashtag};
+use crate::{CommentId, Commentary, EscapedMessage, Hashtag};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance};
@@ -36,7 +36,7 @@ pub fn build_give_kudos_request(
     receiver_id: &AccountId,
     kudos_id: &KudosId,
     created_at: u64,
-    message: &str,
+    message: &EscapedMessage,
     hashtags: &str,
 ) -> Result<Value, &'static str> {
     // TODO: verify text & hashtags for not acceptable symbols
@@ -218,9 +218,7 @@ mod tests {
         let sender_id = AccountId::new_unchecked("test1.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
         let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
-        let message = Settings::default()
-            .validate_commentary_message(r#""a","b":{"t":"multi\nline"},"#)
-            .unwrap();
+        let message = EscapedMessage::new(r#""a","b":{"t":"multi\nline"},"#, 1000).unwrap();
 
         let json_text = serde_json::to_string(
             &super::build_give_kudos_request(
@@ -278,7 +276,7 @@ mod tests {
                 &comment_id,
                 &Commentary {
                     sender_id: &sender_id,
-                    message: "some commentary text",
+                    message: &EscapedMessage::new("some commentary text", 1000).unwrap(),
                     timestamp: U64(1234567890),
                 }
                 .compose()
