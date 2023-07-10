@@ -4,7 +4,7 @@ use crate::types::{IncrementalUniqueId, KudosId};
 use crate::{CommentId, Commentary, EscapedMessage, Hashtag};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
-use near_sdk::{AccountId, Balance};
+use near_sdk::{AccountId, Balance, Gas};
 
 pub fn build_hashtags(
     receiver_id: &AccountId,
@@ -165,6 +165,13 @@ pub(crate) fn is_default<T: Default + PartialEq>(t: &T) -> bool {
 
 pub(crate) fn opt_default<T>() -> Option<T> {
     Option::<T>::None
+}
+
+pub(crate) fn display_gas_requirement_in_tgas(gas: Gas) -> String {
+    format!(
+        "Requires minimum amount of attached gas {} TGas",
+        gas.0 / Gas::ONE_TERA.0
+    )
 }
 
 pub(crate) fn display_deposit_requirement_in_near(value: Balance) -> String {

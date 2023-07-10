@@ -47,7 +47,7 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     let receiver_id = accounts(0);
     let sender_id = accounts(1);
     let kudos_upvotes_path = build_kudos_upvotes_path(&contract_id, &receiver_id, &kudos_id);
-    let _ = match kudos_contract.send_sbt_mint_request(
+    let _ = match kudos_contract.on_kudos_upvotes_acquired(
         sender_id,
         kudos_id,
         kudos_upvotes_path,
@@ -79,7 +79,7 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_send_sbt_mint_request_errors() {
+fn test_kudos_upvotes_acquire_errors() {
     let contract_id = AccountId::new_unchecked("kudos.near".to_owned());
     let context = build_default_context(contract_id.clone(), None, Some(MAX_GAS))
         .attached_deposit(EXCHANGE_KUDOS_COST)
@@ -132,12 +132,12 @@ fn test_send_sbt_mint_request_errors() {
                   }
                 }
             })),
-            output: "Failed to parse upvotes data `Object {\"test\": String(\"test\")}`: Error(\"invalid type: string \\\"test\\\", expected a boolean\", line: 0, column: 0)",
+            output: "Failed to parse kudos upvotes data `Object {\"test\": String(\"test\")}`: Error(\"invalid type: string \\\"test\\\", expected a boolean\", line: 0, column: 0)",
         },
         TestCase {
             name: "Invalid response",
             input: Ok(json!({})),
-            output: "No upvotes information found for kudos. Response: Object {}",
+            output: "No upvotes found for kudos: Object {}",
         },
         TestCase {
             name: "Promise error",
@@ -150,7 +150,7 @@ fn test_send_sbt_mint_request_errors() {
         testing_env!(context.clone());
 
         assert_eq!(
-            promise_or_value_into_result(kudos_contract.send_sbt_mint_request(
+            promise_or_value_into_result(kudos_contract.on_kudos_upvotes_acquired(
                 sender_id.clone(),
                 kudos_id.clone(),
                 kudos_upvotes_path.clone(),
