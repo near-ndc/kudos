@@ -49,6 +49,7 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     let kudos_upvotes_path = build_kudos_upvotes_path(&contract_id, &receiver_id, &kudos_id);
     let _ = match kudos_contract.on_kudos_upvotes_acquired(
         sender_id,
+        EXCHANGE_KUDOS_COST,
         kudos_id,
         kudos_upvotes_path,
         Ok(json!({
@@ -152,6 +153,7 @@ fn test_kudos_upvotes_acquire_errors() {
         assert_eq!(
             promise_or_value_into_result(kudos_contract.on_kudos_upvotes_acquired(
                 sender_id.clone(),
+                EXCHANGE_KUDOS_COST,
                 kudos_id.clone(),
                 kudos_upvotes_path.clone(),
                 test_case.input,
@@ -183,24 +185,26 @@ fn test_on_pok_sbt_mint() {
     struct TestCase<'a, T> {
         name: &'a str,
         input: Result<Vec<u64>, PromiseError>,
-        output: MethodResult<T>,
+        output: Result<MethodResult<T>, &'static str>,
     }
 
     let test_cases = [
         TestCase {
             name: "SBT mint successful",
             input: Ok(vec![1u64]),
-            output: MethodResult::Success(vec![1u64]),
+            output: Ok(MethodResult::Success(vec![1u64])),
         },
         TestCase {
             name: "SBT mint failure",
             input: Ok(vec![]),
-            output: MethodResult::Success(vec![]),
+            output: Err("IAHRegistry::sbt_mint() responses with an empty tokens array"),
         },
         TestCase {
             name: "Promise error",
             input: Err(near_sdk::PromiseError::Failed),
-            output: MethodResult::error("IAHRegistry::sbt_mint() call failure: Failed"),
+            output: Ok(MethodResult::error(
+                "IAHRegistry::sbt_mint() call failure: Failed",
+            )),
         },
     ];
 
@@ -208,7 +212,12 @@ fn test_on_pok_sbt_mint() {
         testing_env!(context.clone());
 
         assert_eq!(
-            kudos_contract.on_pok_sbt_mint(sender_id.clone(), kudos_id.clone(), test_case.input),
+            kudos_contract.on_pok_sbt_mint(
+                sender_id.clone(),
+                EXCHANGE_KUDOS_COST,
+                kudos_id.clone(),
+                test_case.input
+            ),
             test_case.output,
             "Test case `{} failure`",
             test_case.name

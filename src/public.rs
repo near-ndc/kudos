@@ -8,7 +8,7 @@ use crate::{Contract, ContractExt};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde_json::{self, json, Value};
 use near_sdk::{
-    env, near_bindgen, require, AccountId, Gas, Promise, PromiseError, PromiseOrValue,
+    env, near_bindgen, require, AccountId, Balance, Gas, Promise, PromiseError, PromiseOrValue,
     PromiseResult,
 };
 use std::collections::HashMap;
@@ -33,8 +33,9 @@ impl Contract {
             display_gas_requirement_in_tgas(minimum_gas_requirement)
         );
 
+        let attached_deposit = env::attached_deposit();
         require!(
-            env::attached_deposit() == EXCHANGE_KUDOS_COST,
+            attached_deposit == EXCHANGE_KUDOS_COST,
             &display_deposit_requirement_in_near(EXCHANGE_KUDOS_COST)
         );
 
@@ -54,9 +55,9 @@ impl Contract {
             .then(
                 Self::ext(env::current_account_id())
                     .with_static_gas(gas_available)
-                    .with_attached_deposit(env::attached_deposit())
                     .acquire_number_of_upvotes(
                         predecessor_account_id.clone(),
+                        attached_deposit,
                         external_db_id,
                         kudos_id,
                     ),
@@ -251,8 +252,9 @@ impl Contract {
             display_gas_requirement_in_tgas(minimum_gas_requirement)
         );
 
+        let attached_deposit = env::attached_deposit();
         require!(
-            env::attached_deposit() == GIVE_KUDOS_COST,
+            attached_deposit == GIVE_KUDOS_COST,
             &display_deposit_requirement_in_near(GIVE_KUDOS_COST)
         );
 
@@ -272,9 +274,9 @@ impl Contract {
             .then(
                 Self::ext(env::current_account_id())
                     .with_static_gas(gas_available)
-                    .with_attached_deposit(env::attached_deposit())
                     .save_kudos(
                         predecessor_account_id.clone(),
+                        attached_deposit,
                         external_db_id,
                         receiver_id,
                         message,
@@ -372,10 +374,10 @@ impl Contract {
     }
 
     #[private]
-    #[payable]
     pub fn acquire_number_of_upvotes(
         &mut self,
         predecessor_account_id: AccountId,
+        attached_deposit: Balance,
         external_db_id: AccountId,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
@@ -406,9 +408,9 @@ impl Contract {
                     .then(
                         Self::ext(env::current_account_id())
                             .with_static_gas(upvotes_acquired_callback_gas)
-                            .with_attached_deposit(env::attached_deposit())
                             .on_kudos_upvotes_acquired(
                                 predecessor_account_id.clone(),
+                                attached_deposit,
                                 kudos_id,
                                 kudos_upvotes_path,
                             ),
@@ -418,17 +420,17 @@ impl Contract {
         match result {
             Ok(promise) => promise.into(),
             Err(e) => {
-                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                Promise::new(predecessor_account_id).transfer(attached_deposit);
                 PromiseOrValue::Value(MethodResult::Error(e))
             }
         }
     }
 
     #[private]
-    #[payable]
     pub fn on_kudos_upvotes_acquired(
         &mut self,
         predecessor_account_id: AccountId,
+        attached_deposit: Balance,
         kudos_id: KudosId,
         kudos_upvotes_path: String,
         #[callback_result] kudos_result: Result<Value, PromiseError>,
@@ -472,15 +474,18 @@ impl Contract {
                     .sbt_mint(vec![(env::signer_account_id(), vec![metadata])])
                     .then(
                         Self::ext(env::current_account_id())
-                            .with_attached_deposit(env::attached_deposit())
                             .with_static_gas(PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS)
-                            .on_pok_sbt_mint(predecessor_account_id.clone(), kudos_id),
+                            .on_pok_sbt_mint(
+                                predecessor_account_id.clone(),
+                                attached_deposit,
+                                kudos_id,
+                            ),
                     )
                     .into();
             }
             Err(e) => {
                 // Return leave comment deposit back to sender if failed
-                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                Promise::new(predecessor_account_id).transfer(attached_deposit);
 
                 PromiseOrValue::Value(MethodResult::Error(e))
             }
@@ -488,37 +493,41 @@ impl Contract {
     }
 
     #[private]
-    #[payable]
+    #[handle_result]
     pub fn on_pok_sbt_mint(
         &mut self,
         predecessor_account_id: AccountId,
+        attached_deposit: Balance,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<u64>, PromiseError>,
-    ) -> MethodResult<Vec<u64>> {
+    ) -> Result<MethodResult<Vec<u64>>, &'static str> {
         match callback_result {
             Ok(minted_tokens_ids) if minted_tokens_ids.is_empty() => {
                 // If IAHRegistry contract succeeds but returns an empty tokens list,
                 // we treat is an unexpected failure and panic. No user deposit returns for this case.
-                env::panic_str("IAHRegistry::sbt_mint() responses with an empty tokens array");
+                Err("IAHRegistry::sbt_mint() responses with an empty tokens array")
             }
-            Ok(minted_tokens_ids) => MethodResult::Success(minted_tokens_ids),
+            Ok(minted_tokens_ids) => Ok(MethodResult::Success(minted_tokens_ids)),
             Err(e) => {
                 // If tokens weren't minted, remove kudos from exchanged table
                 self.exchanged_kudos.remove(&kudos_id);
 
                 // Return deposit back to sender if IAHRegistry::sbt_mint fails
-                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                Promise::new(predecessor_account_id).transfer(attached_deposit);
 
-                MethodResult::Error(format!("IAHRegistry::sbt_mint() call failure: {:?}", e))
+                Ok(MethodResult::Error(format!(
+                    "IAHRegistry::sbt_mint() call failure: {:?}",
+                    e
+                )))
             }
         }
     }
 
     #[private]
-    #[payable]
     pub fn save_kudos(
         &mut self,
         predecessor_account_id: AccountId,
+        attached_deposit: Balance,
         external_db_id: AccountId,
         receiver_id: AccountId,
         message: EscapedMessage,
@@ -552,19 +561,23 @@ impl Contract {
 
                 Ok(ext_db::ext(external_db_id)
                     .with_static_gas(save_kudos_gas)
-                    .with_attached_deposit(env::attached_deposit())
+                    .with_attached_deposit(attached_deposit)
                     .set(kudos_json)
                     .then(
                         Self::ext(env::current_account_id())
                             .with_static_gas(KUDOS_SAVED_CALLBACK_GAS)
-                            .on_kudos_saved(predecessor_account_id.clone(), kudos_id),
+                            .on_kudos_saved(
+                                predecessor_account_id.clone(),
+                                attached_deposit,
+                                kudos_id,
+                            ),
                     ))
             });
 
         match result {
             Ok(promise) => promise.into(),
             Err(e) => {
-                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                Promise::new(predecessor_account_id).transfer(attached_deposit);
                 PromiseOrValue::Value(MethodResult::Error(e))
             }
         }
@@ -574,6 +587,7 @@ impl Contract {
     pub fn on_kudos_saved(
         &mut self,
         predecessor_account_id: AccountId,
+        attached_deposit: Balance,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<(), PromiseError>,
     ) -> MethodResult<KudosId> {
@@ -581,7 +595,7 @@ impl Contract {
             Ok(_) => MethodResult::Success(kudos_id),
             Err(e) => {
                 // Return deposit back to sender if NEAR SocialDb write failure
-                Promise::new(predecessor_account_id).transfer(env::attached_deposit());
+                Promise::new(predecessor_account_id).transfer(attached_deposit);
 
                 MethodResult::Error(format!("SocialDB::set() call failure: {e:?}"))
             }
