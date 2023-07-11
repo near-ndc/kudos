@@ -14,32 +14,25 @@ pub async fn mint_fv_sbt(
     issued_at: u64,  // SBT issued at in millis
     expires_at: u64, // SBT expires at in millis
 ) -> anyhow::Result<Vec<u64>> {
-    let mut minted_tokens = Vec::with_capacity(receivers.len());
-
-    for receiver_id in receivers {
-        let tokens: Vec<u64> = issuer
-            .call(iah_registry_id, "sbt_mint")
-            .args_json(json!({
-              "token_spec": [
-                (receiver_id, [
-                  TokenMetadata {
-                      class: 1, // FV SBT
-                      issued_at: Some(issued_at),
-                      expires_at: Some(expires_at),
-                      reference: None,
-                      reference_hash: None,
-                  }
-                ])
-              ]
-            }))
-            .deposit(parse_near!("0.006 N"))
-            .max_gas()
-            .transact()
-            .await?
-            .json()?;
-
-        minted_tokens.extend(&tokens);
-    }
+    let minted_tokens = issuer
+        .call(iah_registry_id, "sbt_mint")
+        .args_json(json!({
+          "token_spec": receivers.into_iter().map(|receiver_id| (receiver_id, [
+              TokenMetadata {
+                  class: 1, // FV SBT
+                  issued_at: Some(issued_at),
+                  expires_at: Some(expires_at),
+                  reference: None,
+                  reference_hash: None,
+              }
+            ])
+            ).collect::<Vec<_>>()
+        }))
+        .deposit(parse_near!("0.006 N") * receivers.len() as u128)
+        .max_gas()
+        .transact()
+        .await?
+        .json()?;
 
     Ok(minted_tokens)
 }
