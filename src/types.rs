@@ -119,18 +119,6 @@ pub struct Commentary<'a> {
     pub timestamp: U64,
 }
 
-impl<'a> Commentary<'_> {
-    pub fn compose(&self) -> Result<String, String> {
-        serde_json::to_value(&self)
-            .and_then(|val| {
-                val.as_str()
-                    .map(str::to_string)
-                    .ok_or(serde::ser::Error::custom("Not a string"))
-            })
-            .map_err(|e| format!("Unable to compose commentary. Error: {e}"))
-    }
-}
-
 impl Serialize for Commentary<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -214,21 +202,50 @@ impl Display for EscapedMessage {
     }
 }
 
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct EncodedCommentary(String);
+
+impl EncodedCommentary {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl TryFrom<&Commentary<'_>> for EncodedCommentary {
+    type Error = String;
+
+    fn try_from(value: &Commentary<'_>) -> Result<Self, Self::Error> {
+        serde_json::to_value(&value)
+            .and_then(|val| {
+                val.as_str()
+                    .map(|s| Self(s.to_owned()))
+                    .ok_or(serde::ser::Error::custom("Not a string"))
+            })
+            .map_err(|e| format!("Unable to encode commentary: {e}"))
+    }
+}
+
+impl Display for EncodedCommentary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{Commentary, EscapedMessage, Hashtag};
+    use crate::{Commentary, EncodedCommentary, EscapedMessage, Hashtag};
     use assert_matches::assert_matches;
     use near_sdk::json_types::U64;
     use near_sdk::AccountId;
 
     #[test]
-    fn test_commentary_ser() {
-        let comment = Commentary {
+    fn test_commentary_encoding() {
+        let comment = EncodedCommentary::try_from(&Commentary {
             sender_id: &AccountId::new_unchecked("user.near".to_owned()),
             message: &EscapedMessage::new("commentary test", 1000).unwrap(),
             timestamp: U64(1234567890),
-        }
-        .compose()
+        })
         .unwrap();
         assert_eq!(
             comment.as_str(),
