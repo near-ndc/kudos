@@ -37,7 +37,6 @@ impl Contract {
                 let root_id = env::current_account_id();
                 let created_at = env::block_timestamp_ms();
                 let kudos_id = KudosId::from(self.last_incremental_id.inc());
-                let hashtags = build_hashtags(&receiver_id, &kudos_id, hashtags)?;
                 let kudos_json = build_give_kudos_request(
                     &root_id,
                     &sender_id,
@@ -45,7 +44,7 @@ impl Contract {
                     &kudos_id,
                     created_at,
                     &message,
-                    &hashtags,
+                    hashtags.as_deref(),
                 )?;
 
                 let save_kudos_gas =

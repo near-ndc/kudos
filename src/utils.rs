@@ -9,7 +9,7 @@ use near_sdk::{AccountId, Balance, Gas};
 pub fn build_hashtags(
     receiver_id: &AccountId,
     kudos_id: &KudosId,
-    hashtags: Option<Vec<Hashtag>>,
+    hashtags: Option<&[Hashtag]>,
 ) -> Result<String, &'static str> {
     hashtags
         .map(|hashtags| {
@@ -30,6 +30,12 @@ pub fn build_hashtags(
         .unwrap_or_else(|| Ok("{}".to_owned()))
 }
 
+pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static str> {
+    serde_json::to_string(&hashtags)
+        .map(|s| s.escape_default().to_string())
+        .map_err(|_| "Internal hashtags serialization error")
+}
+
 pub fn build_give_kudos_request(
     root_id: &AccountId,
     sender_id: &AccountId,
@@ -37,9 +43,11 @@ pub fn build_give_kudos_request(
     kudos_id: &KudosId,
     created_at: u64,
     message: &EscapedMessage,
-    hashtags: &str,
+    hashtags: Option<&[Hashtag]>,
 ) -> Result<Value, &'static str> {
-    // TODO: verify text & hashtags for not acceptable symbols
+    let hashtags_as_array_json = hashtags_to_json_array(hashtags.as_deref().unwrap_or(&[]))?;
+    let hashtags_with_kudos = build_hashtags(receiver_id, kudos_id, hashtags)?;
+
     serde_json::from_str::<Value>(&format!(
         r#"{{
           "{root_id}": {{
@@ -50,11 +58,12 @@ pub fn build_give_kudos_request(
                   "sender_id": "{sender_id}",
                   "message": "{message}",
                   "upvotes": {{}},
-                  "comments": {{}}
+                  "comments": {{}},
+                  "tags": "{hashtags_as_array_json}"
                 }}
               }}
             }},
-            "hashtags": {hashtags}
+            "hashtags": {hashtags_with_kudos}
           }}
         }}"#
     ))
@@ -206,7 +215,7 @@ mod tests {
         let json_text = super::build_hashtags(
             &receiver_id,
             &next_kudos_id,
-            Some(vec![
+            Some(&vec![
                 Hashtag::try_from("hashtaga").unwrap(),
                 Hashtag::try_from("hashtagb").unwrap(),
                 Hashtag::try_from("hashtagc").unwrap(),
@@ -218,6 +227,20 @@ mod tests {
             json_text,
             r#"{"hashtaga":{"1":"test2.near"},"hashtagb":{"1":"test2.near"},"hashtagc":{"1":"test2.near"}}"#
         );
+    }
+
+    #[test]
+    fn test_hashtags_to_json_array() {
+        assert_eq!(
+            hashtags_to_json_array(&[
+                Hashtag::try_from("a1").unwrap(),
+                Hashtag::try_from("b1").unwrap(),
+                Hashtag::try_from("c1").unwrap(),
+            ])
+            .unwrap(),
+            r#"[\"a1\",\"b1\",\"c1\"]"#
+        );
+        assert_eq!(hashtags_to_json_array(&[]).unwrap(), r#"[]"#);
     }
 
     #[test]
@@ -236,7 +259,10 @@ mod tests {
                 &next_kudos_id,
                 1234567890u64,
                 &message,
-                "{}",
+                Some(&[
+                    Hashtag::try_from("abc").unwrap(),
+                    Hashtag::try_from("def").unwrap(),
+                ]),
             )
             .unwrap(),
         )
@@ -244,7 +270,7 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"hashtags":{},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","upvotes":{}}}}}}"#
+            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
         );
     }
 

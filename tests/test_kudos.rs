@@ -138,7 +138,8 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         .json()?;
     println!(
         "avail: {} total: {}",
-        display_deposit_in_near(balance_1.available.0), display_deposit_in_near(balance_1.total.0)
+        display_deposit_in_near(balance_1.available.0),
+        display_deposit_in_near(balance_1.total.0)
     );
 
     let hashtags = (0..10)
@@ -179,10 +180,17 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         .json()?;
     println!(
         "avail: {} total: {}",
-        display_deposit_in_near(balance_2.available.0), display_deposit_in_near(balance_2.total.0)
+        display_deposit_in_near(balance_2.available.0),
+        display_deposit_in_near(balance_2.total.0)
     );
+
+    let consumed =
+        (balance_2.total.0 - balance_2.available.0) - (balance_1.total.0 - balance_1.available.0);
+    println!("consumed: {}", display_deposit_in_near(consumed));
+    return Ok(());
     // Test deposit END
     */
+
     // User1 gives kudos to User2
     let hashtags = (0..3).map(|n| format!("ht{n}")).collect::<Vec<_>>();
     let kudos_message = "test\",\n\"a\":{\"b\":\"test2\"},\"c\":\"msg";
@@ -221,16 +229,20 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     )
     .and_then(|val| serde_json::from_value::<BTreeMap<String, Value>>(val).ok())
     .map(|map| map.keys().cloned().collect::<Vec<_>>());
-    assert_eq!(extracted_hashtags, Some(hashtags));
+    assert_eq!(extracted_hashtags, Some(hashtags.clone()));
 
     let escaped_kudos_message = kudos_message.escape_default().to_string();
     assert_eq!(
         kudos_data.to_string(),
         format!(
-            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"message":"{escaped_kudos_message}","sender_id":"{}"}}}}}}}}}}"#,
+            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"message":"{escaped_kudos_message}","sender_id":"{}","tags":"{}"}}}}}}}}}}"#,
             kudos_contract.id(),
             user2_account.id(),
-            user1_account.id()
+            user1_account.id(),
+            serde_json::to_string(&hashtags)
+                .unwrap()
+                .escape_default()
+                .to_string(),
         )
     );
 

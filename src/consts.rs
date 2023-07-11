@@ -27,14 +27,13 @@ pub const EXCHANGE_KUDOS_STORAGE: StorageUsage = STORAGE_ENTRY + ENUM_STORAGE_KE
 pub const EXCHANGE_KUDOS_COST: Balance =
     EXCHANGE_KUDOS_STORAGE as Balance * STORAGE_PRICE_PER_BYTE + PROOF_OF_KUDOS_SBT_MINT_COST;
 
-pub const GIVE_KUDOS_COST: Balance = 88_000_000_000_000_000_000_000; // 0.088 NEAR
+pub const GIVE_KUDOS_COST: Balance = 100_000_000_000_000_000_000_000; // 0.1 NEAR
 
 // TODO: compute valid gas usage
-pub const HUMANITY_VERIFIED_RESERVED_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 
 pub const SAVE_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 pub const KUDOS_SAVED_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
-pub const GIVE_KUDOS_RESERVED_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
+pub const GIVE_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 
 pub const VERIFY_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 
