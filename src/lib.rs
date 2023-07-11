@@ -1,3 +1,4 @@
+mod callbacks;
 mod consts;
 mod contract;
 mod external_db;
