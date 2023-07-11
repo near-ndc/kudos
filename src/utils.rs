@@ -95,18 +95,18 @@ pub fn build_leave_comment_request(
     let comment = comment.as_str();
     let json = format!(
         r#"{{
-        "{root_id}": {{
-          "kudos": {{
-            "{receiver_id}": {{
-              "{kudos_id}": {{
-                "comments": {{
-                  "{comment_id}": "{comment}"
+          "{root_id}": {{
+            "kudos": {{
+              "{receiver_id}": {{
+                "{kudos_id}": {{
+                  "comments": {{
+                    "{comment_id}": "{comment}"
+                  }}
                 }}
               }}
             }}
           }}
-        }}
-      }}"#
+        }}"#
     );
     serde_json::from_str::<Value>(&json).map_err(|e| "Internal serialization error")
 }
