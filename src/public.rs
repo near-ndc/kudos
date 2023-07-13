@@ -27,7 +27,8 @@ impl Contract {
             + SOCIAL_DB_REQUEST_MIN_RESERVED_GAS
             + KUDOS_UPVOTES_ACQUIRED_CALLBACK_GAS
             + PROOF_OF_KUDOS_SBT_MINT_GAS
-            + PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS;
+            + PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS
+            + FAILURE_CALLBACK_GAS;
         require!(
             env::prepaid_gas() >= minimum_gas_requirement,
             display_gas_requirement_in_tgas(minimum_gas_requirement)
@@ -87,7 +88,8 @@ impl Contract {
             + SOCIAL_DB_REQUEST_MIN_RESERVED_GAS
             + KUDOS_INFO_ACQUIRED_CALLBACK_GAS
             + SOCIAL_DB_REQUEST_MIN_RESERVED_GAS
-            + KUDOS_COMMENT_SAVED_CALLBACK_GAS;
+            + KUDOS_COMMENT_SAVED_CALLBACK_GAS
+            + FAILURE_CALLBACK_GAS;
         require!(
             env::prepaid_gas() >= minimum_gas_requirement,
             display_gas_requirement_in_tgas(minimum_gas_requirement)
@@ -148,7 +150,8 @@ impl Contract {
             + SOCIAL_DB_REQUEST_MIN_RESERVED_GAS
             + KUDOS_SENDER_ACQUIRED_CALLBACK_GAS
             + SOCIAL_DB_REQUEST_MIN_RESERVED_GAS
-            + KUDOS_UPVOTE_SAVED_CALLBACK_GAS;
+            + KUDOS_UPVOTE_SAVED_CALLBACK_GAS
+            + FAILURE_CALLBACK_GAS;
         require!(
             env::prepaid_gas() >= minimum_gas_requirement,
             display_gas_requirement_in_tgas(minimum_gas_requirement)
@@ -198,7 +201,8 @@ impl Contract {
             + IS_HUMAN_GAS
             + SAVE_KUDOS_RESERVED_GAS
             + SOCIAL_DB_REQUEST_MIN_RESERVED_GAS
-            + KUDOS_SAVED_CALLBACK_GAS;
+            + KUDOS_SAVED_CALLBACK_GAS
+            + FAILURE_CALLBACK_GAS;
         require!(
             env::prepaid_gas() >= minimum_gas_requirement,
             display_gas_requirement_in_tgas(minimum_gas_requirement)

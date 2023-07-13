@@ -125,21 +125,21 @@ pub async fn give_kudos(
         .transact()
         .await?
         .into_result()
-        .map_err(|e| anyhow::Error::msg(format!("Give kudos failure: {e:?}")));
+        .map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Give kudos failure: {:?}",
+                extract_error(e.outcomes().into_iter())
+            ))
+        });
 
     res.and_then(|res| {
         println!("gas burnt: {}", res.total_gas_burnt);
-        match res.json::<MethodResult<_>>() {
-            Ok(MethodResult::Success(kudos_id)) => Ok(kudos_id),
-            Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
-                "Failed to give kudos. Error: {e}. Receipts: {:?}",
-                res.receipt_outcomes(),
-            ))),
-            Err(e) => Err(anyhow::Error::msg(format!(
+        res.json().map_err(|e| {
+            anyhow::Error::msg(format!(
                 "Failed to deserialize give kudos response: {e:?}. Receipts: {:?}",
                 res.receipt_outcomes()
-            ))),
-        }
+            ))
+        })
     })
 }
 
@@ -234,12 +234,13 @@ pub async fn exchange_kudos_for_sbt(
             ))
         });
 
-    res.and_then(|res| match res.json() {
-        Ok(tokens) => Ok(tokens),
-        Err(e) => Err(anyhow::Error::msg(format!(
-            "Failed to deserialize exchange kudos response: {e:?}. Receipts: {:?}",
-            res.receipt_outcomes()
-        ))),
+    res.and_then(|res| {
+        res.json().map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Failed to deserialize exchange kudos response: {e:?}. Receipts: {:?}",
+                res.receipt_outcomes()
+            ))
+        })
     })
 }
 

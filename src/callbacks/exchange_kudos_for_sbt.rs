@@ -40,7 +40,8 @@ impl Contract {
 
                 let upvotes_acquired_callback_gas = KUDOS_UPVOTES_ACQUIRED_CALLBACK_GAS
                     + PROOF_OF_KUDOS_SBT_MINT_GAS
-                    + PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS;
+                    + PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS
+                    + FAILURE_CALLBACK_GAS;
 
                 let acquire_upvotes_gas = env::prepaid_gas()
                     - (ACQUIRE_NUMBER_OF_UPVOTES_RESERVED_GAS + upvotes_acquired_callback_gas);
@@ -103,7 +104,9 @@ impl Contract {
                     .sbt_mint(vec![(env::signer_account_id(), vec![metadata])])
                     .then(
                         Self::ext(env::current_account_id())
-                            .with_static_gas(PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS)
+                            .with_static_gas(
+                                PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS + FAILURE_CALLBACK_GAS,
+                            )
                             .on_pok_sbt_mint(
                                 predecessor_account_id.clone(),
                                 attached_deposit,

@@ -25,7 +25,7 @@ impl Contract {
         message: EscapedMessage,
         hashtags: Option<Vec<Hashtag>>,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<KudosId>> {
+    ) -> Promise {
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -47,8 +47,8 @@ impl Contract {
                     hashtags.as_deref(),
                 )?;
 
-                let save_kudos_gas =
-                    env::prepaid_gas() - (SAVE_KUDOS_RESERVED_GAS + KUDOS_SAVED_CALLBACK_GAS);
+                let save_kudos_gas = env::prepaid_gas()
+                    - (SAVE_KUDOS_RESERVED_GAS + KUDOS_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS);
 
                 Ok(ext_db::ext(external_db_id)
                     .with_static_gas(save_kudos_gas)
@@ -56,7 +56,7 @@ impl Contract {
                     .set(kudos_json)
                     .then(
                         Self::ext(env::current_account_id())
-                            .with_static_gas(KUDOS_SAVED_CALLBACK_GAS)
+                            .with_static_gas(KUDOS_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS)
                             .on_kudos_saved(
                                 predecessor_account_id.clone(),
                                 attached_deposit,
@@ -67,10 +67,13 @@ impl Contract {
 
         match result {
             Ok(promise) => promise.into(),
-            Err(e) => {
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-                PromiseOrValue::Value(MethodResult::Error(e))
-            }
+            Err(e) => Promise::new(predecessor_account_id)
+                .transfer(attached_deposit)
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_static_gas(FAILURE_CALLBACK_GAS)
+                        .on_failure(e),
+                ),
         }
     }
 
@@ -81,14 +84,19 @@ impl Contract {
         attached_deposit: Balance,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<(), PromiseError>,
-    ) -> MethodResult<KudosId> {
+    ) -> PromiseOrValue<KudosId> {
         match callback_result {
-            Ok(_) => MethodResult::Success(kudos_id),
+            Ok(_) => PromiseOrValue::Value(kudos_id),
             Err(e) => {
                 // Return deposit back to sender if NEAR SocialDb write failure
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-
-                MethodResult::Error(format!("SocialDB::set() call failure: {e:?}"))
+                Promise::new(predecessor_account_id)
+                    .transfer(attached_deposit)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(FAILURE_CALLBACK_GAS)
+                            .on_failure(format!("SocialDB::set() call failure: {e:?}")),
+                    )
+                    .into()
             }
         }
     }
