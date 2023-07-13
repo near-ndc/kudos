@@ -23,13 +23,23 @@ pub fn build_default_context(
     builder
 }
 
-pub fn promise_or_value_into_result<T: std::fmt::Debug>(
-    value: PromiseOrValue<MethodResult<T>>,
+// pub fn promise_or_value_into_result<T: std::fmt::Debug>(
+//     value: PromiseOrValue<MethodResult<T>>,
+// ) -> Result<String, String> {
+//     match value {
+//         PromiseOrValue::Promise(promise) => near_sdk::serde_json::to_string(&promise)
+//             .map_err(|e| format!("Failed to serialize Promise: {e:?}")),
+//         PromiseOrValue::Value(MethodResult::Success(res)) => Ok(format!("{res:?}")),
+//         PromiseOrValue::Value(MethodResult::Error(e)) => Err(e),
+//     }
+// }
+
+pub fn promise_or_value_result_into_result<T: std::fmt::Debug>(
+    value: Result<PromiseOrValue<T>, &'static str>,
 ) -> Result<String, String> {
     match value {
-        PromiseOrValue::Promise(promise) => near_sdk::serde_json::to_string(&promise)
-            .map_err(|e| format!("Failed to serialize Promise: {e:?}")),
-        PromiseOrValue::Value(MethodResult::Success(res)) => Ok(format!("{res:?}")),
-        PromiseOrValue::Value(MethodResult::Error(e)) => Err(e),
+        Ok(PromiseOrValue::Promise(_)) => Ok("Promise".to_owned()),
+        Ok(PromiseOrValue::Value(res)) => Ok(format!("{res:?}")),
+        Err(e) => Err(e.to_owned()),
     }
 }

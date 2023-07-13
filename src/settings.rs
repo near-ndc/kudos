@@ -90,10 +90,6 @@ impl Settings {
         }
     }
 
-    pub(crate) fn verify_number_of_upvotes_to_exchange_kudos(&self, upvotes: usize) -> bool {
-        upvotes >= self.min_number_of_upvotes_to_exchange_kudos as usize
-    }
-
     pub(crate) fn acquire_pok_sbt_expire_at_ts(&self, issued_at: u64) -> Result<u64, &'static str> {
         issued_at
             .checked_add(self.pok_sbt_ttl)

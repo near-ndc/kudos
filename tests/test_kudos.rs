@@ -515,3 +515,144 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[ignore]
+#[tokio::test]
+async fn test_mass_give_kudos() -> anyhow::Result<()> {
+    let worker_mainnet = ::workspaces::mainnet_archival().await?;
+    let near_social_id = "social.near".parse()?;
+    let worker = ::workspaces::sandbox().await?;
+
+    let admin_account = worker.root_account()?;
+
+    // Setup NEAR Social-DB contract
+    let near_social = worker
+        .import_contract(&near_social_id, &worker_mainnet)
+        .initial_balance(parse_near!("10000000 N"))
+        .block_height(94_000_000)
+        .transact()
+        .await?;
+    let _ = near_social
+        .call("new")
+        .args_json(json!({}))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    let _ = near_social
+        .call("set_status")
+        .args_json(json!({"status": "Live"}))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Initialize NDC i-am-human registry contract
+    let iah_registry_id = "registry.i-am-human.near".parse()?;
+    let iah_registry = worker
+        .import_contract(&iah_registry_id, &worker_mainnet)
+        .initial_balance(parse_near!("10000000 N"))
+        .block_height(95_309_837)
+        .transact()
+        .await?;
+    let _ = iah_registry
+        .call("new")
+        .args_json(json!({
+          "authority": admin_account.id(),
+          "iah_issuer": admin_account.id(),
+          "iah_classes": [1]
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    let _ = admin_account
+        .call(&iah_registry_id, "admin_add_sbt_issuer")
+        .args_json(json!({
+          "issuer": admin_account.id()
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Setup NDC Kudos Contract
+    let kudos_contract = build_contract(
+        &worker,
+        "./",
+        "init",
+        json!({ "iah_registry": iah_registry_id }),
+    )
+    .await?;
+    let balance_bounds: StorageBalanceBounds = near_social
+        .view("storage_balance_bounds")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    let _ = kudos_contract
+        .call("set_external_db")
+        .args_json(json!({
+            "external_db_id": near_social.id()
+        }))
+        .deposit(balance_bounds.min.0)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Register users' accounts
+    let number_of_users: usize = 5;
+    let mut users_accounts = Vec::with_capacity(number_of_users);
+
+    for i in 0..number_of_users {
+        let user_account = gen_user_account(&worker, &format!("user{}.test.near", &i)).await?;
+        let _ = transfer_near(&worker, user_account.id(), parse_near!("5 N")).await?;
+        users_accounts.push(user_account);
+    }
+
+    let now_ms = get_block_timestamp(&worker).await? / 1_000_000;
+
+    // Mint FV SBT for users & verify
+    let _ = mint_fv_sbt(
+        &iah_registry_id,
+        &admin_account,
+        &users_accounts
+            .iter()
+            .map(|user| user.id())
+            .collect::<Vec<_>>(),
+        now_ms,
+        now_ms + 86_400_000,
+    )
+    .await?;
+
+    let mut kudos = vec![];
+
+    for user_account in &users_accounts[1..] {
+        // UserX gives kudos to User1
+        let hashtags = (0..3).map(|n| format!("ht{n}")).collect::<Vec<_>>();
+        let kudos_message = "amazing message".repeat(32);
+        let kudos_id = give_kudos(
+            kudos_contract.id(),
+            &user_account,
+            users_accounts.first().unwrap().id(),
+            &kudos_message,
+            hashtags.iter().map(|s| s.as_str()).collect(),
+        )
+        .await?;
+        kudos.push(kudos_id);
+    }
+
+    for (user_account, kudos_id) in users_accounts[1..].iter().rev().zip(&kudos) {
+        println!("{} upvotes kudos {}", user_account.id(), kudos_id);
+        // UserX upvotes kudos of User1
+        let _ = upvote_kudos(
+            kudos_contract.id(),
+            user_account,
+            users_accounts.first().unwrap().id(),
+            kudos_id,
+        )
+        .await?;
+    }
+
+    Ok(())
+}

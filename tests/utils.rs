@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
 use kudos_contract::{CommentId, KudosId, MethodResult, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -6,6 +7,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
 use near_sdk::{AccountId, ONE_NEAR};
 use near_units::parse_near;
+use workspaces::result::ExecutionOutcome;
 
 pub async fn mint_fv_sbt(
     iah_registry_id: &workspaces::AccountId,
@@ -125,16 +127,19 @@ pub async fn give_kudos(
         .into_result()
         .map_err(|e| anyhow::Error::msg(format!("Give kudos failure: {e:?}")));
 
-    res.and_then(|res| match res.json::<MethodResult<_>>() {
-        Ok(MethodResult::Success(kudos_id)) => Ok(kudos_id),
-        Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
-            "Failed to give kudos. Error: {e}. Receipts: {:?}",
-            res.receipt_outcomes(),
-        ))),
-        Err(e) => Err(anyhow::Error::msg(format!(
-            "Failed to deserialize give kudos response: {e:?}. Receipts: {:?}",
-            res.receipt_outcomes()
-        ))),
+    res.and_then(|res| {
+        println!("gas burnt: {}", res.total_gas_burnt);
+        match res.json::<MethodResult<_>>() {
+            Ok(MethodResult::Success(kudos_id)) => Ok(kudos_id),
+            Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
+                "Failed to give kudos. Error: {e}. Receipts: {:?}",
+                res.receipt_outcomes(),
+            ))),
+            Err(e) => Err(anyhow::Error::msg(format!(
+                "Failed to deserialize give kudos response: {e:?}. Receipts: {:?}",
+                res.receipt_outcomes()
+            ))),
+        }
     })
 }
 
@@ -150,23 +155,26 @@ pub async fn upvote_kudos(
             "receiver_id": receiver_id,
             "kudos_id": kudos_id,
         }))
-        .deposit(ONE_NEAR)
+        .deposit(parse_near!("0.1 N"))
         .max_gas()
         .transact()
         .await?
         .into_result()
         .map_err(|e| anyhow::Error::msg(format!("Upvote kudos failure: {e:?}")));
 
-    res.and_then(|res| match res.json::<MethodResult<_>>() {
-        Ok(MethodResult::Success(created_at)) => Ok(created_at),
-        Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
-            "Failed to upvotes kudos. Error: {e}. Receipts: {:?}",
-            res.receipt_outcomes(),
-        ))),
-        Err(e) => Err(anyhow::Error::msg(format!(
-            "Failed to deserialize upvote kudos response: {e:?}. Receipts: {:?}",
-            res.receipt_outcomes()
-        ))),
+    res.and_then(|res| {
+        println!("gas burnt: {}", res.total_gas_burnt);
+        match res.json::<MethodResult<_>>() {
+            Ok(MethodResult::Success(created_at)) => Ok(created_at),
+            Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
+                "Failed to upvotes kudos. Error: {e}. Receipts: {:?}",
+                res.receipt_outcomes(),
+            ))),
+            Err(e) => Err(anyhow::Error::msg(format!(
+                "Failed to deserialize upvote kudos response: {e:?}. Receipts: {:?}",
+                res.receipt_outcomes()
+            ))),
+        }
     })
 }
 
@@ -219,14 +227,15 @@ pub async fn exchange_kudos_for_sbt(
         .transact()
         .await?
         .into_result()
-        .map_err(|e| anyhow::Error::msg(format!("Exchange kudos failure: {e:?}")));
+        .map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Exchange kudos failure: {:?}",
+                extract_error(e.outcomes().into_iter())
+            ))
+        });
 
-    res.and_then(|res| match res.json::<MethodResult<_>>() {
-        Ok(MethodResult::Success(tokens)) => Ok(tokens),
-        Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
-            "Failed to exchange kudos. Error: {e}. Receipts: {:?}",
-            res.receipt_outcomes(),
-        ))),
+    res.and_then(|res| match res.json() {
+        Ok(tokens) => Ok(tokens),
         Err(e) => Err(anyhow::Error::msg(format!(
             "Failed to deserialize exchange kudos response: {e:?}. Receipts: {:?}",
             res.receipt_outcomes()
@@ -243,4 +252,21 @@ fn compare_slices<T: PartialEq>(sl1: &[T], sl2: &[T]) -> bool {
         .count();
 
     count == sl1.len() && count == sl2.len()
+}
+
+pub fn extract_error<'a, I>(mut outcomes: I) -> anyhow::Error
+where
+    I: Iterator<Item = &'a ExecutionOutcome>,
+{
+    outcomes
+        .find(|&outcome| outcome.is_failure())
+        //.and_then(|outcome| outcome.clone().into_result().err())
+        .map(|outcome| {
+            outcome
+                .clone()
+                .into_result()
+                .map_err(|e| anyhow!(e.into_inner().unwrap()))
+                .unwrap_err()
+        })
+        .unwrap()
 }

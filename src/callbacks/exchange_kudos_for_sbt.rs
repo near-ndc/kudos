@@ -1,3 +1,4 @@
+use super::utils::parse_kudos_and_verify_upvotes;
 use crate::external_db::ext_db;
 use crate::registry::{ext_sbtreg, TokenId, TokenMetadata, IS_HUMAN_GAS};
 use crate::settings::Settings;
@@ -23,7 +24,7 @@ impl Contract {
         external_db_id: AccountId,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<KudosId>> {
+    ) -> Promise {
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -60,11 +61,14 @@ impl Contract {
             });
 
         match result {
-            Ok(promise) => promise.into(),
-            Err(e) => {
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-                PromiseOrValue::Value(MethodResult::Error(e))
-            }
+            Ok(promise) => promise,
+            Err(e) => Promise::new(predecessor_account_id)
+                .transfer(attached_deposit)
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_static_gas(FAILURE_CALLBACK_GAS)
+                        .on_failure(e),
+                ),
         }
     }
 
@@ -76,41 +80,24 @@ impl Contract {
         kudos_id: KudosId,
         kudos_upvotes_path: String,
         #[callback_result] kudos_result: Result<Value, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<Vec<u64>>> {
+    ) -> Promise {
         let settings = Settings::from(&self.settings);
 
-        let result = kudos_result
-            .map_err(|e| format!("SocialDB::keys({kudos_upvotes_path}/*) call failure: {e:?}"))
-            .and_then(|mut kudos_json| {
-                let upvotes_raw = remove_key_from_json(&mut kudos_json, &kudos_upvotes_path)
-                    .ok_or_else(|| format!("No upvotes found for kudos: {kudos_json:?}"))?;
+        match parse_kudos_and_verify_upvotes(
+            kudos_result,
+            kudos_upvotes_path,
+            settings.min_number_of_upvotes_to_exchange_kudos as usize,
+        )
+        .and_then(|_| {
+            let issued_at = env::block_timestamp_ms();
+            let expires_at = settings.acquire_pok_sbt_expire_at_ts(issued_at)?;
 
-                let upvoters =
-                    serde_json::from_value::<HashMap<AccountId, bool>>(upvotes_raw.clone())
-                        .map_err(|e| {
-                            format!("Failed to parse kudos upvotes data `{upvotes_raw:?}`: {e:?}")
-                        })?;
-
-                let number_of_upvotes = upvoters.keys().len();
-
-                if !settings.verify_number_of_upvotes_to_exchange_kudos(number_of_upvotes) {
-                    return Err(format!(
-                        "Minimum required number ({}) of upvotes has not been reached",
-                        settings.min_number_of_upvotes_to_exchange_kudos
-                    ));
-                }
-
-                let issued_at = env::block_timestamp_ms();
-                let expires_at = settings.acquire_pok_sbt_expire_at_ts(issued_at)?;
-
-                Ok(build_pok_sbt_metadata(issued_at, expires_at))
-            });
-
-        match result {
+            Ok(build_pok_sbt_metadata(issued_at, expires_at))
+        }) {
             Ok(metadata) => {
                 self.exchanged_kudos.insert(kudos_id.clone());
 
-                return ext_sbtreg::ext(self.iah_registry.clone())
+                ext_sbtreg::ext(self.iah_registry.clone())
                     .with_attached_deposit(PROOF_OF_KUDOS_SBT_MINT_COST)
                     .with_static_gas(PROOF_OF_KUDOS_SBT_MINT_GAS)
                     .sbt_mint(vec![(env::signer_account_id(), vec![metadata])])
@@ -123,13 +110,16 @@ impl Contract {
                                 kudos_id,
                             ),
                     )
-                    .into();
             }
             Err(e) => {
                 // Return leave comment deposit back to sender if failed
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-
-                PromiseOrValue::Value(MethodResult::Error(e))
+                Promise::new(predecessor_account_id)
+                    .transfer(attached_deposit)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(FAILURE_CALLBACK_GAS)
+                            .on_failure(e),
+                    )
             }
         }
     }
@@ -142,25 +132,27 @@ impl Contract {
         attached_deposit: Balance,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<u64>, PromiseError>,
-    ) -> Result<MethodResult<Vec<u64>>, &'static str> {
+    ) -> Result<PromiseOrValue<Vec<u64>>, &'static str> {
         match callback_result {
             Ok(minted_tokens_ids) if minted_tokens_ids.is_empty() => {
                 // If IAHRegistry contract succeeds but returns an empty tokens list,
                 // we treat is an unexpected failure and panic. No user deposit returns for this case.
                 Err("IAHRegistry::sbt_mint() responses with an empty tokens array")
             }
-            Ok(minted_tokens_ids) => Ok(MethodResult::Success(minted_tokens_ids)),
+            Ok(minted_tokens_ids) => Ok(PromiseOrValue::Value(minted_tokens_ids)),
             Err(e) => {
                 // If tokens weren't minted, remove kudos from exchanged table
                 self.exchanged_kudos.remove(&kudos_id);
 
                 // Return deposit back to sender if IAHRegistry::sbt_mint fails
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-
-                Ok(MethodResult::Error(format!(
-                    "IAHRegistry::sbt_mint() call failure: {:?}",
-                    e
-                )))
+                Ok(Promise::new(predecessor_account_id)
+                    .transfer(attached_deposit)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(FAILURE_CALLBACK_GAS)
+                            .on_failure(format!("IAHRegistry::sbt_mint() call failure: {:?}", e)),
+                    )
+                    .into())
             }
         }
     }

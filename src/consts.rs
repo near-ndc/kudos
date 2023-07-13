@@ -30,6 +30,7 @@ pub const EXCHANGE_KUDOS_COST: Balance =
 pub const GIVE_KUDOS_COST: Balance = 100_000_000_000_000_000_000_000; // 0.1 NEAR
 
 // TODO: compute valid gas usage
+pub const FAILURE_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
 
 pub const SAVE_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 pub const KUDOS_SAVED_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
