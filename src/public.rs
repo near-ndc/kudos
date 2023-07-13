@@ -161,9 +161,12 @@ impl Contract {
         );
 
         let attached_deposit = env::attached_deposit();
-        // TODO: check for minimum required deposit
-        let external_db_id = self.external_db_id()?.clone();
+        require!(
+            attached_deposit == UPVOTE_KUDOS_COST,
+            &display_deposit_requirement_in_near(UPVOTE_KUDOS_COST)
+        );
 
+        let external_db_id = self.external_db_id()?.clone();
         let gas_available =
             env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + UPVOTE_KUDOS_RESERVED_GAS);
 

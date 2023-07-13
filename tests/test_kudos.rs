@@ -993,3 +993,178 @@ async fn test_leave_comment_deposit() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[ignore]
+#[tokio::test]
+async fn test_upvote_kudos_deposit() -> anyhow::Result<()> {
+    let worker_mainnet = ::workspaces::mainnet_archival().await?;
+    let near_social_id = "social.near".parse()?;
+    let worker = ::workspaces::sandbox().await?;
+
+    let admin_account = worker.root_account()?;
+
+    // Setup NEAR Social-DB contract
+    let near_social = worker
+        .import_contract(&near_social_id, &worker_mainnet)
+        .initial_balance(parse_near!("10000000 N"))
+        .block_height(94_000_000)
+        .transact()
+        .await?;
+    let _ = near_social
+        .call("new")
+        .args_json(json!({}))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    let _ = near_social
+        .call("set_status")
+        .args_json(json!({"status": "Live"}))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Initialize NDC i-am-human registry contract
+    let iah_registry_id = "registry.i-am-human.near".parse()?;
+    let iah_registry = worker
+        .import_contract(&iah_registry_id, &worker_mainnet)
+        .initial_balance(parse_near!("10000000 N"))
+        .block_height(95_309_837)
+        .transact()
+        .await?;
+    let _ = iah_registry
+        .call("new")
+        .args_json(json!({
+          "authority": admin_account.id(),
+          "iah_issuer": admin_account.id(),
+          "iah_classes": [1]
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    let _ = admin_account
+        .call(&iah_registry_id, "admin_add_sbt_issuer")
+        .args_json(json!({
+          "issuer": admin_account.id()
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Setup NDC Kudos Contract
+    let kudos_contract = build_contract(
+        &worker,
+        "./",
+        "init",
+        json!({ "iah_registry": iah_registry_id }),
+    )
+    .await?;
+    let balance_bounds: StorageBalanceBounds = near_social
+        .view("storage_balance_bounds")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    let _ = kudos_contract
+        .call("set_external_db")
+        .args_json(json!({
+            "external_db_id": near_social.id()
+        }))
+        .deposit(balance_bounds.min.0)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Register users' accounts
+    let user1_account = gen_user_account(&worker, "user1.test.near").await?;
+    let _ = transfer_near(&worker, user1_account.id(), parse_near!("50 N")).await?;
+
+    let user2_account = gen_user_account(&worker, "user2.test.near").await?;
+    let _ = transfer_near(&worker, user2_account.id(), parse_near!("50 N")).await?;
+
+    let user3_account = gen_user_account(&worker, "user3.test.near").await?;
+    let _ = transfer_near(&worker, user3_account.id(), parse_near!("50 N")).await?;
+
+    let now_ms = get_block_timestamp(&worker).await? / 1_000_000;
+
+    // Mint FV SBT for users & verify
+    let minted_tokens: Vec<u64> = mint_fv_sbt(
+        &iah_registry_id,
+        &admin_account,
+        &vec![user1_account.id(), user2_account.id(), user3_account.id()],
+        now_ms,
+        now_ms + 86_400_000,
+    )
+    .await?;
+    assert!(verify_is_human(
+        &iah_registry_id,
+        admin_account.id(),
+        &vec![&user1_account, &user2_account, &user3_account],
+        &minted_tokens
+    )
+    .await
+    .is_ok());
+
+    let hashtags = (0..10)
+        .map(|n| format!("{}{n}", "a".repeat(31)))
+        .collect::<Vec<_>>();
+    let kudos_text = "a".repeat(1000);
+    let test1_account =
+        gen_user_account(&worker, &[&"a".repeat(54), ".test.near"].concat()).await?;
+    let _ = transfer_near(&worker, test1_account.id(), parse_near!("10 N")).await?;
+    let test2_account =
+        gen_user_account(&worker, &[&"b".repeat(54), ".test.near"].concat()).await?;
+    let _ = transfer_near(&worker, test2_account.id(), parse_near!("10 N")).await?;
+    let test3_account =
+        gen_user_account(&worker, &[&"c".repeat(54), ".test.near"].concat()).await?;
+    let _ = transfer_near(&worker, test3_account.id(), parse_near!("10 N")).await?;
+
+    // Mint FV SBT for users & verify
+    let _ = mint_fv_sbt(
+        &iah_registry_id,
+        &admin_account,
+        &vec![test1_account.id(), test2_account.id(), test3_account.id()],
+        now_ms,
+        now_ms + 86_400_000,
+    )
+    .await?;
+    let kudos_id = give_kudos(
+        kudos_contract.id(),
+        &test1_account,
+        test2_account.id(),
+        &kudos_text,
+        hashtags.iter().map(|s| s.as_str()).collect(),
+    )
+    .await?;
+
+    let balance_1: near_contract_standards::storage_management::StorageBalance = kudos_contract
+        .as_account()
+        .view(near_social.id(), "storage_balance_of")
+        .args_json(json!({"account_id": kudos_contract.id()}))
+        .await?
+        .json()?;
+
+    let _ = upvote_kudos(
+        kudos_contract.id(),
+        &test3_account,
+        test2_account.id(),
+        &kudos_id,
+    )
+    .await?;
+
+    let balance_2: near_contract_standards::storage_management::StorageBalance = kudos_contract
+        .as_account()
+        .view(near_social.id(), "storage_balance_of")
+        .args_json(json!({"account_id": kudos_contract.id()}))
+        .await?
+        .json()?;
+
+    let consumed =
+        (balance_2.total.0 - balance_2.available.0) - (balance_1.total.0 - balance_1.available.0);
+    println!("consumed: {}", display_deposit_in_near(consumed));
+
+    Ok(())
+}

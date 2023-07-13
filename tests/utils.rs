@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
 use kudos_contract::{
     CommentId, KudosId, MethodResult, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST,
+    UPVOTE_KUDOS_COST,
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
@@ -157,7 +158,7 @@ pub async fn upvote_kudos(
             "receiver_id": receiver_id,
             "kudos_id": kudos_id,
         }))
-        .deposit(parse_near!("0.1 N"))
+        .deposit(UPVOTE_KUDOS_COST)
         .max_gas()
         .transact()
         .await?
