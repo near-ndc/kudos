@@ -197,18 +197,21 @@ pub async fn leave_comment(
         .transact()
         .await?
         .into_result()
-        .map_err(|e| anyhow::Error::msg(format!("Leave comment failure: {e:?}")));
+        .map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Leave comment failure: {:?}",
+                extract_error(e.outcomes().into_iter())
+            ))
+        });
 
-    res.and_then(|res| match res.json::<MethodResult<_>>() {
-        Ok(MethodResult::Success(created_at)) => Ok(created_at),
-        Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
-            "Failed to leave a comment for kudos. Error: {e}. Receipts: {:?}",
-            res.receipt_outcomes(),
-        ))),
-        Err(e) => Err(anyhow::Error::msg(format!(
-            "Failed to deserialize leave comment response: {e:?}. Receipts: {:?}",
-            res.receipt_outcomes()
-        ))),
+    res.and_then(|res| {
+        println!("gas burnt: {}", res.total_gas_burnt);
+        res.json().map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Failed to deserialize leave comment response: {e:?}. Receipts: {:?}",
+                res.receipt_outcomes()
+            ))
+        })
     })
 }
 

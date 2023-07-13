@@ -25,7 +25,7 @@ impl Contract {
         kudos_id: KudosId,
         comment: EncodedCommentary,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<KudosId>> {
+    ) -> Promise {
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -48,11 +48,13 @@ impl Contract {
                 let get_kudos_by_id_gas = (env::prepaid_gas()
                     - (ACQUIRE_KUDOS_INFO_RESERVED_GAS
                         + KUDOS_INFO_ACQUIRED_CALLBACK_GAS
-                        + KUDOS_COMMENT_SAVED_CALLBACK_GAS))
+                        + KUDOS_COMMENT_SAVED_CALLBACK_GAS
+                        + FAILURE_CALLBACK_GAS))
                     / 2;
                 let get_kudos_by_id_callback_gas = get_kudos_by_id_gas
                     + KUDOS_INFO_ACQUIRED_CALLBACK_GAS
-                    + KUDOS_COMMENT_SAVED_CALLBACK_GAS;
+                    + KUDOS_COMMENT_SAVED_CALLBACK_GAS
+                    + FAILURE_CALLBACK_GAS;
 
                 Ok(ext_db::ext(external_db_id.clone())
                     .with_static_gas(get_kudos_by_id_gas)
@@ -72,11 +74,14 @@ impl Contract {
             });
 
         match result {
-            Ok(promise) => promise.into(),
-            Err(e) => {
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-                PromiseOrValue::Value(MethodResult::Error(e))
-            }
+            Ok(promise) => promise,
+            Err(e) => Promise::new(predecessor_account_id)
+                .transfer(attached_deposit)
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_static_gas(FAILURE_CALLBACK_GAS)
+                        .on_failure(e),
+                ),
         }
     }
 
@@ -90,23 +95,21 @@ impl Contract {
         leave_comment_req: Value,
         comment_id: CommentId,
         #[callback_result] callback_result: Result<Value, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<CommentId>> {
-        let method_result = match callback_result
+    ) -> Promise {
+        let Err(e) = callback_result
             .map_err(|e| {
-                MethodResult::Error(format!(
+                format!(
                     "SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"
-                ))
+                )
             })
             .and_then(|kudos_by_id_res| {
                 extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
                     .ok_or_else(|| {
-                        MethodResult::error("Unable to acquire a Kudos sender account id")
+                        "Unable to acquire a Kudos sender account id".to_owned()
                     })
-            }) {
-            Err(e) => e,
-            Ok(_) => {
+            }) else {
                 let gas_left = env::prepaid_gas()
-                    - (KUDOS_INFO_ACQUIRED_CALLBACK_GAS + KUDOS_COMMENT_SAVED_CALLBACK_GAS);
+                    - (KUDOS_INFO_ACQUIRED_CALLBACK_GAS + KUDOS_COMMENT_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS);
 
                 return ext_db::ext(external_db_id)
                     .with_attached_deposit(attached_deposit)
@@ -114,7 +117,7 @@ impl Contract {
                     .set(leave_comment_req)
                     .then(
                         Self::ext(env::current_account_id())
-                            .with_static_gas(KUDOS_COMMENT_SAVED_CALLBACK_GAS)
+                            .with_static_gas(KUDOS_COMMENT_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS)
                             .on_commentary_saved(
                                 predecessor_account_id.clone(),
                                 attached_deposit,
@@ -122,13 +125,16 @@ impl Contract {
                             ),
                     )
                     .into();
-            }
-        };
+            };
 
         // Return leave comment deposit back to sender if failed
-        Promise::new(predecessor_account_id).transfer(attached_deposit);
-
-        PromiseOrValue::Value(method_result)
+        Promise::new(predecessor_account_id)
+            .transfer(attached_deposit)
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(FAILURE_CALLBACK_GAS)
+                    .on_failure(e),
+            )
     }
 
     #[private]
@@ -138,14 +144,19 @@ impl Contract {
         attached_deposit: Balance,
         comment_id: CommentId,
         #[callback_result] callback_result: Result<(), PromiseError>,
-    ) -> MethodResult<CommentId> {
+    ) -> PromiseOrValue<CommentId> {
         match callback_result {
-            Ok(_) => MethodResult::Success(comment_id),
+            Ok(_) => PromiseOrValue::Value(comment_id),
             Err(e) => {
                 // Return deposit back to sender if NEAR SocialDb write failure
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-
-                MethodResult::Error(format!("SocialDB::set() call failure: {e:?}"))
+                Promise::new(predecessor_account_id)
+                    .transfer(attached_deposit)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(FAILURE_CALLBACK_GAS)
+                            .on_failure(format!("SocialDB::set() call failure: {e:?}")),
+                    )
+                    .into()
             }
         }
     }
