@@ -24,7 +24,7 @@ impl Contract {
         receiver_id: AccountId,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<KudosId>> {
+    ) -> Promise {
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -42,11 +42,13 @@ impl Contract {
                 let get_kudos_by_id_gas = (env::prepaid_gas()
                     - (ACQUIRE_KUDOS_SENDER_RESERVED_GAS
                         + KUDOS_SENDER_ACQUIRED_CALLBACK_GAS
-                        + KUDOS_UPVOTE_SAVED_CALLBACK_GAS))
+                        + KUDOS_UPVOTE_SAVED_CALLBACK_GAS
+                        + FAILURE_CALLBACK_GAS))
                     / 2;
                 let get_kudos_by_id_callback_gas = get_kudos_by_id_gas
                     + KUDOS_SENDER_ACQUIRED_CALLBACK_GAS
-                    + KUDOS_UPVOTE_SAVED_CALLBACK_GAS;
+                    + KUDOS_UPVOTE_SAVED_CALLBACK_GAS
+                    + FAILURE_CALLBACK_GAS;
 
                 Ok(ext_db::ext(external_db_id.clone())
                     .with_static_gas(get_kudos_by_id_gas)
@@ -65,11 +67,14 @@ impl Contract {
             });
 
         match result {
-            Ok(promise) => promise.into(),
-            Err(e) => {
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-                PromiseOrValue::Value(MethodResult::Error(e))
-            }
+            Ok(promise) => promise,
+            Err(e) => Promise::new(predecessor_account_id)
+                .transfer(attached_deposit)
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_static_gas(FAILURE_CALLBACK_GAS)
+                        .on_failure(e),
+                ),
         }
     }
 
@@ -82,26 +87,22 @@ impl Contract {
         get_kudos_by_id_req: String,
         upvote_kudos_req: Value,
         #[callback_result] callback_result: Result<Value, PromiseError>,
-    ) -> PromiseOrValue<MethodResult<CommentId>> {
-        let method_result = match callback_result
-            .map_err(|e| {
-                MethodResult::Error(format!(
-                    "SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"
-                ))
-            })
+    ) -> Promise {
+        let Err(e) = callback_result
+            .map_err(|e| format!("SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"))
             .and_then(|kudos_by_id_res| {
-                extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
-                    .ok_or_else(|| {
-                        MethodResult::error("Unable to acquire a Kudos sender account id")
-                    })
-            }) {
-            Err(e) => e,
-            Ok(sender_id) if sender_id == env::signer_account_id() => {
-                MethodResult::error("User is not eligible to upvote this kudos")
-            }
-            Ok(_) => {
+                match extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res) {
+                    Some(sender_id) if sender_id == env::signer_account_id() => {
+                        Err("User is not eligible to upvote this kudos".to_owned())
+                    }
+                    Some(_) => Ok(()),
+                    None => Err("Unable to acquire a Kudos sender account id".to_owned())
+                }
+            }) else {
                 let gas_left = env::prepaid_gas()
-                    - (KUDOS_SENDER_ACQUIRED_CALLBACK_GAS + KUDOS_UPVOTE_SAVED_CALLBACK_GAS);
+                    - (KUDOS_SENDER_ACQUIRED_CALLBACK_GAS
+                        + KUDOS_UPVOTE_SAVED_CALLBACK_GAS
+                        + FAILURE_CALLBACK_GAS);
 
                 return ext_db::ext(external_db_id)
                     .with_attached_deposit(attached_deposit)
@@ -109,20 +110,23 @@ impl Contract {
                     .set(upvote_kudos_req)
                     .then(
                         Self::ext(env::current_account_id())
-                            .with_static_gas(KUDOS_UPVOTE_SAVED_CALLBACK_GAS)
+                            .with_static_gas(KUDOS_UPVOTE_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS)
                             .on_kudos_upvote_saved(
                                 predecessor_account_id.clone(),
                                 attached_deposit,
                             ),
                     )
                     .into();
-            }
-        };
+            };
 
-        // Return leave comment deposit back to sender if failed
-        Promise::new(predecessor_account_id).transfer(attached_deposit);
-
-        PromiseOrValue::Value(method_result)
+        // Return upvote kudos deposit back to sender if failed
+        Promise::new(predecessor_account_id)
+            .transfer(attached_deposit)
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(FAILURE_CALLBACK_GAS)
+                    .on_failure(e),
+            )
     }
 
     #[private]
@@ -131,14 +135,19 @@ impl Contract {
         predecessor_account_id: AccountId,
         attached_deposit: Balance,
         #[callback_result] callback_result: Result<(), PromiseError>,
-    ) -> MethodResult<u64> {
+    ) -> PromiseOrValue<u64> {
         match callback_result {
-            Ok(_) => MethodResult::Success(env::block_timestamp_ms()),
+            Ok(_) => PromiseOrValue::Value(env::block_timestamp_ms()),
             Err(e) => {
                 // Return deposit back to sender if NEAR SocialDb write failure
-                Promise::new(predecessor_account_id).transfer(attached_deposit);
-
-                MethodResult::Error(format!("SocialDB::set() call failure: {e:?}"))
+                Promise::new(predecessor_account_id)
+                    .transfer(attached_deposit)
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(FAILURE_CALLBACK_GAS)
+                            .on_failure(format!("SocialDB::set() call failure: {e:?}")),
+                    )
+                    .into()
             }
         }
     }

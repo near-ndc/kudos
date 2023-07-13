@@ -160,21 +160,21 @@ pub async fn upvote_kudos(
         .transact()
         .await?
         .into_result()
-        .map_err(|e| anyhow::Error::msg(format!("Upvote kudos failure: {e:?}")));
+        .map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Upvote kudos failure: {:?}",
+                extract_error(e.outcomes().into_iter())
+            ))
+        });
 
     res.and_then(|res| {
         println!("gas burnt: {}", res.total_gas_burnt);
-        match res.json::<MethodResult<_>>() {
-            Ok(MethodResult::Success(created_at)) => Ok(created_at),
-            Ok(MethodResult::Error(e)) => Err(anyhow::Error::msg(format!(
-                "Failed to upvotes kudos. Error: {e}. Receipts: {:?}",
-                res.receipt_outcomes(),
-            ))),
-            Err(e) => Err(anyhow::Error::msg(format!(
+        res.json().map_err(|e| {
+            anyhow::Error::msg(format!(
                 "Failed to deserialize upvote kudos response: {e:?}. Receipts: {:?}",
                 res.receipt_outcomes()
-            ))),
-        }
+            ))
+        })
     })
 }
 
