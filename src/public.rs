@@ -96,7 +96,10 @@ impl Contract {
         );
 
         let attached_deposit = env::attached_deposit();
-        // TODO: check for minimum required deposit
+        require!(
+            attached_deposit == LEAVE_COMMENT_COST,
+            &display_deposit_requirement_in_near(LEAVE_COMMENT_COST)
+        );
 
         let external_db_id = self.external_db_id()?.clone();
         let comment = EncodedCommentary::try_from(&Commentary {

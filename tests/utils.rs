@@ -1,6 +1,8 @@
 use anyhow::anyhow;
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
-use kudos_contract::{CommentId, KudosId, MethodResult, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST};
+use kudos_contract::{
+    CommentId, KudosId, MethodResult, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST,
+};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -192,7 +194,7 @@ pub async fn leave_comment(
             "kudos_id": kudos_id,
             "message": message,
         }))
-        .deposit(ONE_NEAR)
+        .deposit(LEAVE_COMMENT_COST)
         .max_gas()
         .transact()
         .await?
