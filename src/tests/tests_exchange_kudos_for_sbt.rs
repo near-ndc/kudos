@@ -55,10 +55,10 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     let sender_id = accounts(1);
     let kudos_upvotes_path = build_kudos_upvotes_path(&contract_id, &receiver_id, &kudos_id);
     kudos_contract.on_kudos_upvotes_acquired(
-        sender_id,
+        sender_id.clone(),
         EXCHANGE_KUDOS_COST,
-        kudos_id,
-        kudos_upvotes_path,
+        kudos_id.clone(),
+        kudos_upvotes_path.clone(),
         Ok(json!({
             "kudos.near": {
               "kudos": {
@@ -77,9 +77,32 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     );
     // There is no way to verify if callback failed or not, because it never panics and
     // calls another failure callback in case of failure. So we verify balance change,
-    // if we get funds return then it's an error
+    // if we get full refund then it's an error, otherwise we attach `PROOF_OF_KUDOS_SBT_MINT_COST`
+    // to next XCC
     let used_balance = initial_balance - env::account_balance();
     assert_eq!(used_balance, PROOF_OF_KUDOS_SBT_MINT_COST);
+
+    let initial_balance = env::account_balance();
+    kudos_contract.on_kudos_upvotes_acquired(
+        sender_id,
+        EXCHANGE_KUDOS_COST,
+        kudos_id,
+        kudos_upvotes_path,
+        Ok(json!({
+            "kudos.near": {
+              "kudos": {
+                "alice": {
+                  "1": {
+                    "upvotes": {}
+                  }
+                }
+              }
+            }
+        })),
+    );
+    // Not enough upvotes, full attached deposit returned
+    let used_balance = initial_balance - env::account_balance();
+    assert_eq!(used_balance, EXCHANGE_KUDOS_COST);
 
     Ok(())
 }
