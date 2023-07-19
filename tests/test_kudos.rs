@@ -4,14 +4,12 @@ mod workspaces;
 
 use crate::types::*;
 use crate::utils::*;
-use crate::workspaces::{
-    build_contract, gen_user_account, get_block_timestamp, load_contract, transfer_near,
-};
-use kudos_contract::{utils::*, CommentId, KudosId};
+use crate::workspaces::{build_contract, gen_user_account, get_block_timestamp, transfer_near};
+use kudos_contract::{utils::*, CommentId};
 use kudos_contract::{Commentary, PROOF_OF_KUDOS_SBT_CLASS_ID};
 use near_contract_standards::storage_management::StorageBalanceBounds;
 use near_sdk::serde_json::{self, json, Value};
-use near_sdk::{AccountId, ONE_NEAR, ONE_YOCTO};
+use near_sdk::AccountId;
 use near_units::parse_near;
 use std::collections::{BTreeMap, HashMap};
 

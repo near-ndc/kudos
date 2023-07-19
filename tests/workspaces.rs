@@ -3,7 +3,7 @@ use workspaces::network::{NetworkClient, NetworkInfo, Sandbox};
 use workspaces::result::ExecutionSuccess;
 use workspaces::{
     types::{Balance, KeyType, SecretKey},
-    Account, AccountId, Contract, DevNetwork, Worker,
+    Account, Contract, DevNetwork, Worker,
 };
 
 // Generate user sub-account

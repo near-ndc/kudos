@@ -1,14 +1,11 @@
 use anyhow::anyhow;
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
 use kudos_contract::{
-    CommentId, KudosId, MethodResult, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST,
-    UPVOTE_KUDOS_COST,
+    CommentId, KudosId, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST, UPVOTE_KUDOS_COST,
 };
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::Base64VecU8;
-use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::json_types::U64;
 use near_sdk::serde_json::json;
-use near_sdk::{AccountId, ONE_NEAR};
+use near_sdk::AccountId;
 use near_units::parse_near;
 use workspaces::result::ExecutionOutcome;
 
@@ -151,7 +148,7 @@ pub async fn upvote_kudos(
     sender: &workspaces::Account,
     receiver_id: &workspaces::AccountId,
     kudos_id: &KudosId,
-) -> anyhow::Result<u64> {
+) -> anyhow::Result<U64> {
     let res = sender
         .call(kudos_contract_id, "upvote_kudos")
         .args_json(json!({

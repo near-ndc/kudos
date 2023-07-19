@@ -1,17 +1,12 @@
+use crate::consts::*;
 use crate::external_db::ext_db;
-use crate::registry::{ext_sbtreg, TokenId, TokenMetadata, IS_HUMAN_GAS};
-use crate::settings::Settings;
-use crate::types::{CommentId, Commentary, KudosId, MethodResult, PromiseFunctionCall};
-use crate::{consts::*, EncodedCommentary, EscapedMessage, Hashtag};
-use crate::{utils::*, GIVE_KUDOS_COST};
+use crate::registry::TokenId;
+use crate::types::KudosId;
+use crate::utils::*;
 use crate::{Contract, ContractExt};
-use near_sdk::json_types::Base64VecU8;
-use near_sdk::serde_json::{self, json, Value};
-use near_sdk::{
-    env, near_bindgen, require, AccountId, Balance, Gas, Promise, PromiseError, PromiseOrValue,
-    PromiseResult,
-};
-use std::collections::HashMap;
+use near_sdk::json_types::U64;
+use near_sdk::serde_json::Value;
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, PromiseOrValue};
 
 #[near_bindgen]
 impl Contract {
@@ -135,9 +130,9 @@ impl Contract {
         predecessor_account_id: AccountId,
         attached_deposit: Balance,
         #[callback_result] callback_result: Result<(), PromiseError>,
-    ) -> PromiseOrValue<u64> {
+    ) -> PromiseOrValue<U64> {
         match callback_result {
-            Ok(_) => PromiseOrValue::Value(env::block_timestamp_ms()),
+            Ok(_) => PromiseOrValue::Value(env::block_timestamp_ms().into()),
             Err(e) => {
                 // Return deposit back to sender if NEAR SocialDb write failure
                 Promise::new(predecessor_account_id)

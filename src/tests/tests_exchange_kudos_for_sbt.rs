@@ -1,13 +1,12 @@
 use crate::consts::{EXCHANGE_KUDOS_COST, EXCHANGE_KUDOS_STORAGE};
 use crate::tests::utils::{build_default_context, promise_or_value_result_into_result, MAX_GAS};
-use crate::utils::{build_kudos_upvotes_path, display_deposit_requirement_in_near};
+use crate::utils::build_kudos_upvotes_path;
 use crate::{Contract, IncrementalUniqueId, KudosId, PROOF_OF_KUDOS_SBT_MINT_COST};
 use near_sdk::borsh::BorshSerialize;
-use near_sdk::serde_json::{json, Value};
+use near_sdk::serde_json::json;
 use near_sdk::test_utils::accounts;
 use near_sdk::{
-    env, serde_json, testing_env, AccountId, Gas, Promise, PromiseError, PromiseOrValue,
-    PromiseResult, RuntimeFeesConfig, VMConfig, ONE_NEAR, ONE_YOCTO,
+    env, testing_env, AccountId, Gas, PromiseError, PromiseResult, RuntimeFeesConfig, VMConfig,
 };
 use std::collections::HashMap;
 

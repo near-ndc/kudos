@@ -4,10 +4,8 @@ use crate::settings::{Settings, SettingsView, VSettings};
 use crate::types::{KudosId, StorageKey};
 use crate::IncrementalUniqueId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::store::{LookupMap, LookupSet};
-use near_sdk::{
-    env, near_bindgen, require, AccountId, PanicOnDefault, Promise, PromiseError, ONE_YOCTO,
-};
+use near_sdk::store::LookupSet;
+use near_sdk::{env, near_bindgen, require, AccountId, PanicOnDefault, Promise, PromiseError};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]

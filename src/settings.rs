@@ -1,9 +1,7 @@
 use crate::utils::opt_default;
 use crate::Hashtag;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::require;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::serde_json::{self, Value};
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct Settings {

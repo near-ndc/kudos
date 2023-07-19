@@ -1,17 +1,10 @@
-use crate::external_db::ext_db;
-use crate::registry::{ext_sbtreg, TokenId, TokenMetadata, IS_HUMAN_GAS};
+use crate::registry::{ext_sbtreg, IS_HUMAN_GAS};
 use crate::settings::Settings;
-use crate::types::{CommentId, Commentary, KudosId, MethodResult, PromiseFunctionCall};
-use crate::{consts::*, EncodedCommentary, EscapedMessage, Hashtag};
+use crate::types::{Commentary, KudosId};
+use crate::{consts::*, EncodedCommentary, EscapedMessage};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
-use near_sdk::json_types::Base64VecU8;
-use near_sdk::serde_json::{self, json, Value};
-use near_sdk::{
-    env, near_bindgen, require, AccountId, Balance, Gas, Promise, PromiseError, PromiseOrValue,
-    PromiseResult,
-};
-use std::collections::HashMap;
+use near_sdk::{env, near_bindgen, require, AccountId, Promise};
 
 #[near_bindgen]
 impl Contract {

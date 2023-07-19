@@ -16,3 +16,97 @@ near call $CONRTACT_ID set_external_db '{"external_db_id": "v1.social08.testnet"
 ```
 near dev-deploy target/wasm32-unknown-unknown/release/kudos_contract.wasm
 ```
+
+## Public methods
+
+### Give kudos
+
+Allows caller to grant kudos to a receiver NEAR account
+
+#### Requirements
+
+User must be human verified (should have minted and valid i-am-human SBT)
+Minimum gas required: 62 TGas (300 TGas recommended)
+Deposit required: 0.1 Ⓝ
+
+#### Interface
+
+```
+give_kudos(receiver_id, message, hashtags): kudos id
+
+- receiver_id: user's NEAR account id who should be granted with kudos
+- message: followed commentary message text to the kudos granted. By default limits to 1000 characters
+- hashtags: optional array of user-specified tags (restricted to 32 alphanumeric characters). By default maximum allowed number of hashtags is 10
+
+Returns unique kudos identifier or panics with an error message
+```
+
+### Upvote kudos
+
+Allows caller to upvote kudos by unique id granted to a receiver NEAR account
+
+#### Requirements
+
+User must be human verified (should have minted and valid i-am-human SBT)
+Caller can't be a NEAR account which granted kudos
+Caller can't be a receiver NEAR account
+Caller could upvote specified kudos only once
+Minimum gas required: 92 TGas (300 TGas recommended)
+Deposit required: 0.004 Ⓝ
+
+#### Interface
+
+```
+upvote_kudos(receiver_id, kudos_id): timestamp
+
+- receiver_id: user's NEAR account id whos unique kudos should be upvoted
+- kudos_id: unique kudos identified granted to a receiver NEAR account
+
+Returns stringified timestamp of block when kudos was upvoted or panics with an error message
+```
+
+### Leave commentary message to kudos
+
+Allows caller to leave a commentary message to kudos by unique id granted to a receiver NEAR account
+
+#### Requirements
+
+User must be human verified (should have minted and valid i-am-human SBT)
+Caller can't be a receiver NEAR account (User can't comment his kudos)
+Minimum gas required: 87 TGas (300 TGas recommended)
+Deposit required: 0.017 Ⓝ
+
+#### Interface
+
+```
+leave_comment(receiver_id, kudos_id, message): commentary id
+
+- receiver_id: user's NEAR account id whos unique kudos should be upvoted
+- kudos_id: unique kudos identified granted to a receiver NEAR account
+- message: followed commentary message text to the kudos. By default limits to 1000 characters
+
+Returns unique commentary identifier or panics with an error message
+```
+
+### Exchange upvoted kudos for ProofOfKudos SBT
+
+Allows caller to exchange his upvoted kudos by unique id for a ProofOfKudos SBT
+
+#### Requirements
+
+User must be human verified (should have minted and valid i-am-human SBT)
+Caller should be granted with kudos by provided unique identifier
+Caller can exchange his upvoted kudos only once
+Kudos should have minimum required number of upvotes. By default is 3 upvotes
+Minimum gas required: 77 TGas (300 TGas recommended)
+Deposit required: 0.00649 Ⓝ
+
+#### Interface
+
+```
+exchange_kudos_for_sbt(kudos_id): array of minted SBTs
+
+- kudos_id: unique kudos identified granted to a caller NEAR account
+
+Returns an array of minted ProofOfKudos SBTs in exchange for kudos or panics with an error message
+```

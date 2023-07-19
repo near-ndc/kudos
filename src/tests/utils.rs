@@ -1,11 +1,5 @@
-use crate::types::MethodResult;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::Base64VecU8;
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::serde_json::json;
+use near_sdk::PromiseOrValue;
 use near_sdk::{test_utils::VMContextBuilder, AccountId, Balance, Gas};
-use near_sdk::{PromiseOrValue, ONE_NEAR};
-use near_units::parse_near;
 
 pub const MAX_GAS: Gas = Gas(300_000_000_000_000);
 

@@ -1,7 +1,7 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
-use crate::types::{IncrementalUniqueId, KudosId};
-use crate::{CommentId, Commentary, EncodedCommentary, EscapedMessage, Hashtag};
+use crate::types::KudosId;
+use crate::{CommentId, EncodedCommentary, EscapedMessage, Hashtag};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance, Gas};
@@ -117,7 +117,7 @@ pub fn build_leave_comment_request(
           }}
         }}"#
     );
-    serde_json::from_str::<Value>(&json).map_err(|e| "Internal serialization error")
+    serde_json::from_str::<Value>(&json).map_err(|_| "Internal serialization error")
 }
 
 pub fn build_get_kudos_by_id_request(
@@ -169,9 +169,9 @@ pub fn remove_key_from_json(json: &mut Value, key: &str) -> Option<Value> {
 }
 
 /// Checks if provided value of type T is equal to T::default()
-pub(crate) fn is_default<T: Default + PartialEq>(t: &T) -> bool {
-    t == &T::default()
-}
+// pub(crate) fn is_default<T: Default + PartialEq>(t: &T) -> bool {
+//     t == &T::default()
+// }
 
 pub(crate) fn opt_default<T>() -> Option<T> {
     Option::<T>::None
@@ -200,9 +200,9 @@ pub fn display_deposit_in_near(value: Balance) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::EncodedCommentary;
-
     use super::*;
+    use crate::EncodedCommentary;
+    use crate::{types::IncrementalUniqueId, Commentary};
     use near_sdk::json_types::U64;
     use near_sdk::serde_json::json;
     use near_units::parse_near;

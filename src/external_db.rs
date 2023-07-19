@@ -10,6 +10,7 @@ pub struct GetOptions {
     pub return_deleted: Option<bool>,
 }
 
+#[allow(unused)]
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub enum KeysReturnType {

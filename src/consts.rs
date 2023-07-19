@@ -1,8 +1,6 @@
-use near_sdk::borsh::{self, BorshSerialize};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
-use near_sdk::{Balance, BorshStorageKey, Gas, StorageUsage, ONE_NEAR};
+use near_sdk::{Balance, Gas, StorageUsage};
 
-pub(crate) const U128_STORAGE: StorageUsage = 16;
 pub(crate) const U64_STORAGE: StorageUsage = 8;
 pub(crate) const U8_STORAGE: StorageUsage = 1;
 

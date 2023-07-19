@@ -42,7 +42,6 @@ mod tests {
         let root_id = AccountId::new_unchecked("kudos.near".to_owned());
         let kudos_id = KudosId::from(IncrementalUniqueId::default().next());
         let receiver_id = accounts(0);
-        let sender_id = accounts(1);
         let kudos_upvotes_path = build_kudos_upvotes_path(&root_id, &receiver_id, &kudos_id);
 
         struct TestCase<'a> {
