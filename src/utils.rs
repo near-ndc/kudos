@@ -6,6 +6,16 @@ use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance, Gas};
 
+/// Return hashtags relationship to kudos and it's owner as JSON [`String`] which will be stored in NEAR social db
+///
+/// Example of JSON:
+/// {
+///   "lovendc": {
+///     "1": "ndc.near",
+///     ...
+///   },
+///   ...
+/// }
 pub fn build_hashtags(
     receiver_id: &AccountId,
     kudos_id: &KudosId,
@@ -30,12 +40,39 @@ pub fn build_hashtags(
         .unwrap_or_else(|| Ok("{}".to_owned()))
 }
 
+/// Return hashtags array as JSON [`String`] which will be stored in NEAR social db
+///
+/// Example of JSON:
+/// [
+///   "nearcommunity",
+///   "ndckudos",
+///   ...
+/// ]
 pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static str> {
     serde_json::to_string(&hashtags)
         .map(|s| s.escape_default().to_string())
         .map_err(|_| "Internal hashtags serialization error")
 }
 
+/// Return kudos object as JSON [`String`] which will be stored in NEAR social db
+///
+/// Example of JSON:
+/// {
+///   "kudos.near": {
+///     "kudos": {
+///       "some_user.near": {
+///         "1": {
+///           "created_at": "1689976833613",
+///           "sender_id": "alex.near",
+///           "message": "that user is awesome",
+///           "upvotes": {},
+///           "comments": {},
+///           "tags": "[[\"firstkudos\",\"awesomework\"]]",
+///         }
+///       }
+///     }
+///   }
+/// }
 pub fn build_give_kudos_request(
     root_id: &AccountId,
     sender_id: &AccountId,
@@ -70,6 +107,22 @@ pub fn build_give_kudos_request(
     .map_err(|_| "Internal serialization error")
 }
 
+/// Return upvotes for kudos object as JSON [`String`] which will be stored in NEAR social db
+///
+/// Example of JSON:
+/// {
+///   "kudos.near": {
+///     "kudos": {
+///       "some_user.near": {
+///         "1": {
+///           "upvotes": {
+///             "bob.near": ""
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
 pub fn build_upvote_kudos_request(
     root_id: &AccountId,
     sender_id: &AccountId,
@@ -94,6 +147,22 @@ pub fn build_upvote_kudos_request(
     .map_err(|_| "Internal serialization error")
 }
 
+/// Return base64-encoded commentary for kudos object as JSON [`String`] which will be stored in NEAR social db
+///
+/// Example of JSON:
+/// {
+///   "kudos.near": {
+///     "kudos": {
+///       "some_user.near": {
+///         "1": {
+///           "comments": {
+///             "2": "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicyI6InVzZXIubmVhciIsInQiOiIxMjM0NTY3ODkwIn0="
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
 pub fn build_leave_comment_request(
     root_id: &AccountId,
     receiver_id: &AccountId,
@@ -120,6 +189,10 @@ pub fn build_leave_comment_request(
     serde_json::from_str::<Value>(&json).map_err(|_| "Internal serialization error")
 }
 
+/// Return [`String`] path to a stored kudos JSON with unique [`KudosId`] for a valid [`AccountId`]
+/// used to query from NEAR social db.
+///
+/// Example of query: "kudos.near/kudos/alex.near/1/*"
 pub fn build_get_kudos_by_id_request(
     root_id: &AccountId,
     receiver_id: &AccountId,
@@ -128,6 +201,10 @@ pub fn build_get_kudos_by_id_request(
     format!("{root_id}/kudos/{receiver_id}/{kudos_id}/*")
 }
 
+/// Return [`String`] path to a stored upvotes information JSON with unique [`KudosId`] for a valid [`AccountId`]
+/// used to query from NEAR social db.
+///
+/// Example of query: "kudos.near/kudos/alex.near/1/upvotes"
 pub fn build_kudos_upvotes_path(
     root_id: &AccountId,
     receiver_id: &AccountId,
@@ -136,6 +213,8 @@ pub fn build_kudos_upvotes_path(
     format!("{root_id}/kudos/{receiver_id}/{kudos_id}/upvotes")
 }
 
+/// Return [`TokenMetadata`] used as an argument for call [`sbt_mint`](kudos_contract::registry::ExtSbtRegistry::sbt_mint)
+/// to mint ProofOfKudos SBT
 pub fn build_pok_sbt_metadata(issued_at: u64, expires_at: u64) -> TokenMetadata {
     TokenMetadata {
         class: PROOF_OF_KUDOS_SBT_CLASS_ID,
@@ -146,11 +225,13 @@ pub fn build_pok_sbt_metadata(issued_at: u64, expires_at: u64) -> TokenMetadata 
     }
 }
 
+/// Extract sernder [`AccountId`] from stored kudos JSON acquired from NEAR social db
 pub fn extract_kudos_id_sender_from_response(req: &str, mut res: Value) -> Option<AccountId> {
     remove_key_from_json(&mut res, &req.replace("*", "sender_id"))
         .and_then(|val| serde_json::from_value::<AccountId>(val).ok())
 }
 
+/// Remove and return (if removed) [`serde_json::Value`] by key name [`str`] from JSON [`serde_json::Value`]
 pub fn remove_key_from_json(json: &mut Value, key: &str) -> Option<Value> {
     let mut json = Some(json);
     let mut keys = key.split("/").peekable();
@@ -177,6 +258,7 @@ pub(crate) fn opt_default<T>() -> Option<T> {
     Option::<T>::None
 }
 
+/// Return [`String`] message which represents human-readable attached TGas requirements for a call
 pub(crate) fn display_gas_requirement_in_tgas(gas: Gas) -> String {
     format!(
         "Requires minimum amount of attached gas {} TGas",
@@ -184,6 +266,7 @@ pub(crate) fn display_gas_requirement_in_tgas(gas: Gas) -> String {
     )
 }
 
+/// Return [`String`] message which represents human-readable attached Ⓝ deposit requirements for a call
 pub(crate) fn display_deposit_requirement_in_near(value: Balance) -> String {
     format!(
         "Requires exact amount of attached deposit {} NEAR",
@@ -191,6 +274,7 @@ pub(crate) fn display_deposit_requirement_in_near(value: Balance) -> String {
     )
 }
 
+/// Return [`String`] which represents human-readable Ⓝ amount
 pub fn display_deposit_in_near(value: Balance) -> String {
     format!(
         "{} NEAR",
