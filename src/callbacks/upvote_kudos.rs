@@ -34,6 +34,8 @@ impl Contract {
                 let get_kudos_by_id_req =
                     build_get_kudos_by_id_request(&root_id, &receiver_id, &kudos_id);
 
+                // Compute minimum required gas and split the remaining gas by two equal parts for
+                // NEAR Social db subsequent calls
                 let get_kudos_by_id_gas = (env::prepaid_gas()
                     - (ACQUIRE_KUDOS_SENDER_RESERVED_GAS
                         + KUDOS_SENDER_ACQUIRED_CALLBACK_GAS

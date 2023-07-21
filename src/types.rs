@@ -8,20 +8,23 @@ use near_sdk::{
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug)]
-#[serde(crate = "near_sdk::serde")]
+/// This type represents a unique incremental identifier
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct IncrementalUniqueId(U64);
 
 impl IncrementalUniqueId {
+    /// Return [`u64`] representation of this [`IncrementalUniqueId`]
     pub fn as_u64(&self) -> u64 {
         self.0 .0
     }
 
+    /// Increment self-stored value and returns self-reference
     pub fn inc(&mut self) -> &Self {
         self.0 = self.next().0;
         self
     }
 
+    /// Compute the next identifier
     pub fn next(&self) -> Self {
         Self((self.as_u64() + 1).into())
     }
@@ -33,7 +36,9 @@ impl Default for IncrementalUniqueId {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug)]
+/// This type represents a unique identifier of the kudos.
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[serde(crate = "near_sdk::serde")]
 pub struct KudosId(U64);
 
@@ -55,7 +60,9 @@ impl Display for KudosId {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+/// This type represents a unique identifier of the commentary message.
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Eq, PartialEq))]
 #[serde(crate = "near_sdk::serde")]
 pub struct CommentId(U64);
 
@@ -83,38 +90,20 @@ impl Display for CommentId {
     }
 }
 
+/// The type of storage key used as key prefix in contract storage
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
     Kudos,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct PromiseFunctionCall {
-    pub contract_id: AccountId,
-    pub function_name: String,
-    pub arguments: Vec<u8>,
-    pub attached_deposit: Option<near_sdk::Balance>,
-    pub static_gas: near_sdk::Gas,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(crate = "near_sdk::serde", tag = "status", content = "result")]
-pub enum MethodResult<T> {
-    Success(T),
-    Error(String),
-}
-
-impl<T> MethodResult<T> {
-    pub fn error<E: ToString>(err: E) -> Self {
-        Self::Error(err.to_string())
-    }
-}
-
-#[derive(Debug, PartialEq)]
+/// Commentary message data struct which serializes to base64-encoded [`String`] for subsequent store in NEAR social db
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Commentary<'a> {
+    /// A message with escaped characters to guarantee safety of stringification
     pub message: &'a EscapedMessage,
+    /// A valid [`AccountId`] of a message sender
     pub sender_id: &'a AccountId,
+    /// The timestamp in milliseconds when commentary message were prepared
     pub timestamp: U64,
 }
 
@@ -136,18 +125,9 @@ impl Serialize for Commentary<'_> {
     }
 }
 
-#[derive(
-    BorshDeserialize,
-    BorshSerialize,
-    Serialize,
-    Deserialize,
-    Clone,
-    Debug,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-)]
+/// This type represents a [`String`] which contains ascii alphanumeric characters only
+#[derive(Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Clone, Debug))]
 #[serde(crate = "near_sdk::serde")]
 pub struct Hashtag(String);
 
@@ -171,11 +151,14 @@ impl TryFrom<&str> for Hashtag {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// This type represents an escaped message [`String`] limited by maximum number of allowed characters for commentary message
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(PartialEq, Clone, Debug))]
 #[serde(crate = "near_sdk::serde")]
 pub struct EscapedMessage(String);
 
 impl EscapedMessage {
+    /// Creates [`EscapedMessage`] from ref string by escaping it's characters and checks the maximum length
     pub fn new(message: &str, max_lenth: usize) -> Result<Self, &'static str> {
         let escaped_message = message.escape_default().to_string();
 
@@ -186,10 +169,13 @@ impl EscapedMessage {
         Ok(Self(escaped_message))
     }
 
+    /// Creates [`EscapedMessage`] from ref string by escaping it's characters without length check
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new_unchecked(message: &str) -> Self {
         Self(message.escape_default().to_string())
     }
 
+    /// Return [`str`] representation of this [`EscapedMessage`]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
@@ -201,7 +187,9 @@ impl Display for EscapedMessage {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// This type represents a JSON [`String`] view of [`Commentary`]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Clone, Debug, PartialEq))]
 #[serde(crate = "near_sdk::serde")]
 pub struct EncodedCommentary(String);
 

@@ -8,7 +8,9 @@ use near_sdk::{env, near_bindgen, require, AccountId, Promise};
 
 #[near_bindgen]
 impl Contract {
-    /// Exchange upvoted Kudos for ProofOfKudos SBT
+    /// Allows caller to exchange kudos associated with [`KudosId`] for ProofOfKudos SBT.
+    /// Caller should have a valid i-am-human SBT. Every unique [`KudosId`] could be exchanged only once and
+    /// only if it has sufficient amount of upvotes. Calls `sbt_mint` of i-am-human-registry contract.
     #[payable]
     #[handle_result]
     pub fn exchange_kudos_for_sbt(&mut self, kudos_id: KudosId) -> Result<Promise, &'static str> {
@@ -40,7 +42,7 @@ impl Contract {
         let predecessor_account_id = env::predecessor_account_id();
         let external_db_id = self.external_db_id()?.clone();
 
-        let gas_available = env::prepaid_gas()
+        let gas_remaining = env::prepaid_gas()
             - (env::used_gas() + IS_HUMAN_GAS + EXCHANGE_KUDOS_FOR_SBT_RESERVED_GAS);
 
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
@@ -48,7 +50,7 @@ impl Contract {
             .is_human(env::signer_account_id())
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(gas_available)
+                    .with_static_gas(gas_remaining)
                     .acquire_number_of_upvotes(
                         predecessor_account_id.clone(),
                         attached_deposit,
@@ -58,6 +60,9 @@ impl Contract {
             ))
     }
 
+    /// Allows caller to leave a commentary message [`String`] to a kudos associated with [`KudosId`]
+    /// for a user by [`AccountId`]. Caller should have a valid i-am-human SBT and can't leave
+    /// commentary message for his own kudos.
     #[payable]
     #[handle_result]
     pub fn leave_comment(
@@ -104,7 +109,7 @@ impl Contract {
             timestamp: env::block_timestamp_ms().into(),
         })?;
 
-        let gas_available =
+        let gas_remaining =
             env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + LEAVE_COMMENT_RESERVED_GAS);
 
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
@@ -112,7 +117,7 @@ impl Contract {
             .is_human(env::signer_account_id())
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(gas_available)
+                    .with_static_gas(gas_remaining)
                     .acquire_kudos_info(
                         predecessor_account_id.clone(),
                         attached_deposit,
@@ -124,6 +129,8 @@ impl Contract {
             ))
     }
 
+    /// Allows caller to upvote kudos associated with [`KudosId`] for a user by [`AccountId`].
+    /// Caller should have a valid i-am-human SBT and can't upvote his own kudos.
     #[payable]
     #[handle_result]
     pub fn upvote_kudos(
@@ -160,7 +167,7 @@ impl Contract {
         );
 
         let external_db_id = self.external_db_id()?.clone();
-        let gas_available =
+        let gas_remaining =
             env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + UPVOTE_KUDOS_RESERVED_GAS);
 
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
@@ -168,7 +175,7 @@ impl Contract {
             .is_human(env::signer_account_id())
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(gas_available)
+                    .with_static_gas(gas_remaining)
                     .acquire_kudos_sender(
                         predecessor_account_id.clone(),
                         attached_deposit,
@@ -179,6 +186,9 @@ impl Contract {
             ))
     }
 
+    /// Allows caller to give kudos for a user by [`AccountId`].
+    /// Caller should have a valid i-am-human SBT and can't give kudos to himself.
+    /// Hashtags is an array of [`String`] restirected to alphanumeric characters only.
     #[payable]
     #[handle_result]
     pub fn give_kudos(
@@ -220,7 +230,7 @@ impl Contract {
 
         let external_db_id = self.external_db_id()?.clone();
 
-        let gas_available =
+        let gas_remaining =
             env::prepaid_gas() - (env::used_gas() + IS_HUMAN_GAS + GIVE_KUDOS_RESERVED_GAS);
 
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
@@ -228,7 +238,7 @@ impl Contract {
             .is_human(sender_id.clone())
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(gas_available)
+                    .with_static_gas(gas_remaining)
                     .save_kudos(
                         predecessor_account_id.clone(),
                         attached_deposit,

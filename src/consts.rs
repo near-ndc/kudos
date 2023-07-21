@@ -29,7 +29,6 @@ pub const GIVE_KUDOS_COST: Balance = 100_000_000_000_000_000_000_000; // 0.1 NEA
 pub const LEAVE_COMMENT_COST: Balance = 17_000_000_000_000_000_000_000; // 0.017 NEAR (0.01653)
 pub const UPVOTE_KUDOS_COST: Balance = 4_000_000_000_000_000_000_000; // 0.004 NEAR (0.00311)
 
-// TODO: compute valid gas usage
 pub const FAILURE_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
 
 pub const SAVE_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
