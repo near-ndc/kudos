@@ -55,7 +55,7 @@ pub fn build_hashtags(
     hashtags
         .map(|hashtags| {
             hashtags
-                .into_iter()
+                .iter()
                 .map(|ht| {
                     serde_json::from_str::<Value>(&format!(
                         r#"{{
@@ -131,7 +131,7 @@ pub fn build_give_kudos_request(
     message: &EscapedMessage,
     hashtags: Option<&[Hashtag]>,
 ) -> Result<Value, &'static str> {
-    let hashtags_as_array_json = hashtags_to_json_array(hashtags.as_deref().unwrap_or(&[]))?;
+    let hashtags_as_array_json = hashtags_to_json_array(hashtags.unwrap_or(&[]))?;
     let hashtags_with_kudos = build_hashtags(receiver_id, kudos_id, hashtags)?;
 
     serde_json::from_str::<Value>(&format!(
@@ -286,7 +286,7 @@ pub fn build_pok_sbt_metadata(issued_at: u64, expires_at: u64) -> TokenMetadata 
 
 /// Extract sernder [`AccountId`] from stored kudos JSON acquired from NEAR social db
 pub fn extract_kudos_id_sender_from_response(req: &str, mut res: Value) -> Option<AccountId> {
-    remove_key_from_json(&mut res, &req.replace("*", "sender_id"))
+    remove_key_from_json(&mut res, &req.replace('*', "sender_id"))
         .and_then(|val| serde_json::from_value::<AccountId>(val).ok())
 }
 
@@ -324,7 +324,7 @@ pub fn extract_kudos_id_sender_from_response(req: &str, mut res: Value) -> Optio
 /// ```
 pub fn remove_key_from_json(json: &mut Value, key: &str) -> Option<Value> {
     let mut json = Some(json);
-    let mut keys = key.split("/").peekable();
+    let mut keys = key.split('/').peekable();
 
     while let Some(key) = keys.next() {
         match json {

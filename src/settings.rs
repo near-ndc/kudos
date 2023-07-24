@@ -80,10 +80,10 @@ impl Settings {
         }
 
         hashtags
-            .into_iter()
+            .iter()
             .map(|ht_text| Hashtag::new(ht_text, self.hashtag_text_max_length as usize))
             .collect::<Result<Vec<_>, _>>()
-            .map(|hashtags| Some(hashtags))
+            .map(Some)
     }
 
     pub(crate) fn acquire_pok_sbt_expire_at_ts(&self, issued_at: u64) -> Result<u64, &'static str> {

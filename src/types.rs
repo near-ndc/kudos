@@ -204,7 +204,7 @@ impl TryFrom<&Commentary<'_>> for EncodedCommentary {
     type Error = String;
 
     fn try_from(value: &Commentary<'_>) -> Result<Self, Self::Error> {
-        serde_json::to_value(&value)
+        serde_json::to_value(value)
             .and_then(|val| {
                 val.as_str()
                     .map(|s| Self(s.to_owned()))

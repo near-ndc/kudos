@@ -9,6 +9,7 @@ use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, Pro
 #[near_bindgen]
 impl Contract {
     #[private]
+    #[allow(clippy::too_many_arguments)]
     pub fn save_kudos(
         &mut self,
         predecessor_account_id: AccountId,
@@ -58,16 +59,15 @@ impl Contract {
                     ))
             });
 
-        match result {
-            Ok(promise) => promise.into(),
-            Err(e) => Promise::new(predecessor_account_id)
+        result.unwrap_or_else(|e| {
+            Promise::new(predecessor_account_id)
                 .transfer(attached_deposit)
                 .then(
                     Self::ext(env::current_account_id())
                         .with_static_gas(FAILURE_CALLBACK_GAS)
                         .on_failure(e),
-                ),
-        }
+                )
+        })
     }
 
     #[private]

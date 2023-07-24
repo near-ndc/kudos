@@ -56,16 +56,15 @@ impl Contract {
                     ))
             });
 
-        match result {
-            Ok(promise) => promise,
-            Err(e) => Promise::new(predecessor_account_id)
+        result.unwrap_or_else(|e| {
+            Promise::new(predecessor_account_id)
                 .transfer(attached_deposit)
                 .then(
                     Self::ext(env::current_account_id())
                         .with_static_gas(FAILURE_CALLBACK_GAS)
                         .on_failure(e),
-                ),
-        }
+                )
+        })
     }
 
     #[private]
@@ -102,11 +101,7 @@ impl Contract {
                             .with_static_gas(
                                 PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS + FAILURE_CALLBACK_GAS,
                             )
-                            .on_pok_sbt_mint(
-                                predecessor_account_id.clone(),
-                                attached_deposit,
-                                kudos_id,
-                            ),
+                            .on_pok_sbt_mint(predecessor_account_id, attached_deposit, kudos_id),
                     )
             }
             Err(e) => {

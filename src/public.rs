@@ -52,7 +52,7 @@ impl Contract {
                 Self::ext(env::current_account_id())
                     .with_static_gas(gas_remaining)
                     .acquire_number_of_upvotes(
-                        predecessor_account_id.clone(),
+                        predecessor_account_id,
                         attached_deposit,
                         external_db_id,
                         kudos_id,
@@ -119,7 +119,7 @@ impl Contract {
                 Self::ext(env::current_account_id())
                     .with_static_gas(gas_remaining)
                     .acquire_kudos_info(
-                        predecessor_account_id.clone(),
+                        predecessor_account_id,
                         attached_deposit,
                         external_db_id,
                         receiver_id,
@@ -177,7 +177,7 @@ impl Contract {
                 Self::ext(env::current_account_id())
                     .with_static_gas(gas_remaining)
                     .acquire_kudos_sender(
-                        predecessor_account_id.clone(),
+                        predecessor_account_id,
                         attached_deposit,
                         external_db_id,
                         receiver_id,
@@ -235,12 +235,12 @@ impl Contract {
 
         Ok(ext_sbtreg::ext(self.iah_registry.clone())
             .with_static_gas(IS_HUMAN_GAS)
-            .is_human(sender_id.clone())
+            .is_human(sender_id)
             .then(
                 Self::ext(env::current_account_id())
                     .with_static_gas(gas_remaining)
                     .save_kudos(
-                        predecessor_account_id.clone(),
+                        predecessor_account_id,
                         attached_deposit,
                         external_db_id,
                         receiver_id,

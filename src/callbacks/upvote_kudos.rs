@@ -63,16 +63,15 @@ impl Contract {
                     ))
             });
 
-        match result {
-            Ok(promise) => promise,
-            Err(e) => Promise::new(predecessor_account_id)
+        result.unwrap_or_else(|e| {
+            Promise::new(predecessor_account_id)
                 .transfer(attached_deposit)
                 .then(
                     Self::ext(env::current_account_id())
                         .with_static_gas(FAILURE_CALLBACK_GAS)
                         .on_failure(e),
-                ),
-        }
+                )
+        })
     }
 
     #[private]
@@ -109,11 +108,10 @@ impl Contract {
                         Self::ext(env::current_account_id())
                             .with_static_gas(KUDOS_UPVOTE_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS)
                             .on_kudos_upvote_saved(
-                                predecessor_account_id.clone(),
+                                predecessor_account_id,
                                 attached_deposit,
                             ),
-                    )
-                    .into();
+                    );
             };
 
         // Return upvote kudos deposit back to sender if failed

@@ -86,8 +86,7 @@ impl Contract {
         Ok(ext_db::ext(external_db_id.clone())
             .with_attached_deposit(env::attached_deposit() - ONE_YOCTO)
             .set(initial_json)
-            .then(Self::ext(env::current_account_id()).on_ext_db_init(external_db_id, ONE_YOCTO))
-            .into())
+            .then(Self::ext(env::current_account_id()).on_ext_db_init(external_db_id, ONE_YOCTO)))
     }
 
     /// Public view method to read current settings [`SettingsView`] of this contract
@@ -126,8 +125,7 @@ impl Contract {
             .then(
                 Self::ext(env::current_account_id())
                     .on_ext_db_write_permission_granted(external_db_id, iah_registry),
-            )
-            .into())
+            ))
     }
 
     #[private]
