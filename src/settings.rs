@@ -4,7 +4,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
 /// Settings for this contract
-#[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
+#[derive(BorshDeserialize, BorshSerialize, Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Settings {
     pub commentary_message_max_length: u16,
     pub max_number_of_hashtags_per_kudos: u8,
@@ -13,7 +14,8 @@ pub struct Settings {
     pub pok_sbt_ttl: u64,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug)]
+#[derive(BorshDeserialize, BorshSerialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum VSettings {
     // Add old versions here, keep ordering, the oldest on top, most recent at bottom
     // e.g. V0(SettingsV0),
@@ -21,7 +23,7 @@ pub enum VSettings {
 }
 
 /// View JSON serializable representation of `Settings` data struct
-#[derive(Default, Deserialize, Serialize, Clone)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde", rename_all = "camelCase")]
 pub struct SettingsView {
     #[serde(default = "opt_default", skip_serializing_if = "Option::is_none")]
