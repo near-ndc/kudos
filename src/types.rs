@@ -131,23 +131,24 @@ impl Serialize for Commentary<'_> {
 #[serde(crate = "near_sdk::serde")]
 pub struct Hashtag(String);
 
-impl TryFrom<&String> for Hashtag {
-    type Error = &'static str;
+impl Hashtag {
+    /// Creates [`Hashtag`] from ascii alphanumeric ref string and checks the maximum length
+    pub fn new(hashtag: &str, max_lenth: usize) -> Result<Self, &'static str> {
+        if hashtag.len() > max_lenth {
+            return Err("Hashtag max text length exceeded");
+        }
 
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
-
-impl TryFrom<&str> for Hashtag {
-    type Error = &'static str;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if value.contains(|c: char| !c.is_ascii_alphanumeric()) {
+        if hashtag.contains(|c: char| !c.is_ascii_alphanumeric()) {
             return Err("Non-alphanumeric characters are not allowed in hashtag");
         }
 
-        Ok(Self(value.to_owned()))
+        Ok(Self(hashtag.to_owned()))
+    }
+
+    /// Creates [`Hashtag`] from ref string without length and characters check
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_unchecked(hashtag: &str) -> Self {
+        Self(hashtag.to_owned())
     }
 }
 
@@ -242,10 +243,11 @@ mod tests {
 
     #[test]
     fn test_hashtag_from_str() {
-        assert!(Hashtag::try_from("validhashtag").is_ok());
-        assert!(Hashtag::try_from("val1dhAshta9").is_ok());
-        assert!(Hashtag::try_from("invalid_hashtag").is_err());
-        assert!(Hashtag::try_from("invalidha$ht@g").is_err());
+        assert!(Hashtag::new("validhashtag", 32).is_ok());
+        assert!(Hashtag::new("val1dhAshta9", 32).is_ok());
+        assert!(Hashtag::new("invalid_hashtag", 32).is_err());
+        assert!(Hashtag::new("invalidha$ht@g", 32).is_err());
+        assert!(Hashtag::new("toolonghashtag", 8).is_err());
     }
 
     #[test]

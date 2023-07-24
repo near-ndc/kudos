@@ -66,27 +66,22 @@ impl Settings {
         self
     }
 
+    /// Validate and convert array slice of [String] to an array of [Hashtag]
     pub(crate) fn validate_hashtags(
         &self,
         hashtags: Option<&[String]>,
     ) -> Result<Option<Vec<Hashtag>>, &'static str> {
-        match hashtags {
-            None => Ok(None),
-            Some(hashtags) if hashtags.len() > self.max_number_of_hashtags_per_kudos as usize => {
-                Err("Maximum number of hashtags per Kudos exceeded")
-            }
-            Some(hashtags) => hashtags
-                .into_iter()
-                .map(|ht_text| {
-                    if ht_text.len() > self.hashtag_text_max_length as usize {
-                        return Err("Hashtag max text length exceeded");
-                    }
+        let Some(hashtags) = hashtags else { return Ok(None) };
 
-                    Hashtag::try_from(ht_text.as_str())
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map(|hashtags| Some(hashtags)),
+        if hashtags.len() > self.max_number_of_hashtags_per_kudos as usize {
+            return Err("Maximum number of hashtags per Kudos exceeded");
         }
+
+        hashtags
+            .into_iter()
+            .map(|ht_text| Hashtag::new(ht_text, self.hashtag_text_max_length as usize))
+            .collect::<Result<Vec<_>, _>>()
+            .map(|hashtags| Some(hashtags))
     }
 
     pub(crate) fn acquire_pok_sbt_expire_at_ts(&self, issued_at: u64) -> Result<u64, &'static str> {
@@ -171,17 +166,20 @@ impl From<Settings> for SettingsView {
 
 #[cfg(test)]
 mod tests {
-    use crate::settings::Settings;
+    use crate::{settings::Settings, Hashtag};
     use assert_matches::assert_matches;
 
     #[test]
     fn test_validate_hashtags() {
         let settings = Settings::default();
         assert_matches!(settings.validate_hashtags(None), Ok(None));
-        assert_matches!(settings.validate_hashtags(Some(&vec![])), Ok(Some(_)));
-        assert_matches!(
+        assert_matches!(settings.validate_hashtags(Some(&vec![])), Ok(_));
+        assert_eq!(
             settings.validate_hashtags(Some(vec!["abc".to_owned(), "1Def".to_owned()].as_slice())),
-            Ok(Some(_))
+            Ok(Some(vec![
+                Hashtag::new_unchecked("abc"),
+                Hashtag::new_unchecked("1Def")
+            ]))
         );
         assert_matches!(
             settings.validate_hashtags(Some(vec!["abc".to_owned(), "@ABC".to_owned()].as_slice())),

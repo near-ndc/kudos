@@ -406,9 +406,9 @@ mod tests {
             &receiver_id,
             &next_kudos_id,
             Some(&vec![
-                Hashtag::try_from("hashtaga").unwrap(),
-                Hashtag::try_from("hashtagb").unwrap(),
-                Hashtag::try_from("hashtagc").unwrap(),
+                Hashtag::new("hashtaga", 32).unwrap(),
+                Hashtag::new("hashtagb", 32).unwrap(),
+                Hashtag::new("hashtagc", 32).unwrap(),
             ]),
         )
         .unwrap();
@@ -423,9 +423,9 @@ mod tests {
     fn test_hashtags_to_json_array() {
         assert_eq!(
             hashtags_to_json_array(&[
-                Hashtag::try_from("a1").unwrap(),
-                Hashtag::try_from("b1").unwrap(),
-                Hashtag::try_from("c1").unwrap(),
+                Hashtag::new("a1", 32).unwrap(),
+                Hashtag::new("b1", 32).unwrap(),
+                Hashtag::new("c1", 32).unwrap(),
             ])
             .unwrap(),
             r#"[\"a1\",\"b1\",\"c1\"]"#
@@ -450,8 +450,8 @@ mod tests {
                 1234567890u64,
                 &message,
                 Some(&[
-                    Hashtag::try_from("abc").unwrap(),
-                    Hashtag::try_from("def").unwrap(),
+                    Hashtag::new("abc", 32).unwrap(),
+                    Hashtag::new("def", 32).unwrap(),
                 ]),
             )
             .unwrap(),
