@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
 use kudos_contract::{
     CommentId, KudosId, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST,
-    PROOF_OF_KUDOS_SBT_MINT_COST, UPVOTE_KUDOS_COST,
+    PROOF_OF_KUDOS_SBT_MINT_COST, SOCIAL_DB_GRANT_WRITE_PERMISSION_COST, UPVOTE_KUDOS_COST,
 };
 use near_contract_standards::storage_management::{StorageBalance, StorageBalanceBounds};
 use near_sdk::json_types::U64;
@@ -301,7 +301,7 @@ pub async fn update_iah_registry(
     let _ = owner
         .call(kudos_contract_id, "update_iah_registry")
         .args_json(json!({ "iah_registry": iah_registry }))
-        //.deposit(balance_bounds.min.0)
+        .deposit(SOCIAL_DB_GRANT_WRITE_PERMISSION_COST)
         .max_gas()
         .transact()
         .await?

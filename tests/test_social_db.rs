@@ -3,7 +3,7 @@ mod utils;
 mod workspaces;
 
 use crate::utils::*;
-use crate::workspaces::{build_contract, gen_user_account};
+use crate::workspaces::{build_contract, gen_user_account, transfer_near};
 use kudos_contract::utils::*;
 use kudos_contract::SOCIAL_DB_GRANT_WRITE_PERMISSION_COST;
 use near_contract_standards::storage_management::{StorageBalance, StorageBalanceBounds};
@@ -168,6 +168,48 @@ async fn test_social_db_required_deposit() -> anyhow::Result<()> {
         display_deposit_in_near(kudos_contract_available),
         display_deposit_in_near(available_after),
     );
+
+    let fake_iah_registry =
+        gen_user_account(&worker, &[&"x".repeat(54), ".test.near"].concat()).await?;
+    let _ = transfer_near(&worker, fake_iah_registry.id(), parse_near!("5 N")).await?;
+
+    let _ =
+        update_iah_registry(kudos_contract.id(), &admin_account, fake_iah_registry.id()).await?;
+
+    let StorageBalance {
+        total: U128(kudos_contract_total_after_iah_update),
+        available: U128(kudos_contract_available_after_iah_update),
+    } = storage_balance_of(&near_social_id, kudos_contract.as_account())
+        .await?
+        .unwrap();
+
+    assert!(
+        kudos_contract_total <= kudos_contract_total_after_iah_update,
+        "Kudos contract initialized at SocialDB total storage deposit can't be less than before call `update_iah_registry` method!"
+    );
+    assert!(
+        kudos_contract_available <= kudos_contract_available_after_iah_update,
+        "Kudos contract initialized at SocialDB available storage deposit can't be less than before call `update_iah_registry` method ({} < {})!",
+        display_deposit_in_near(kudos_contract_available_after_iah_update),
+        display_deposit_in_near(kudos_contract_available),
+    );
+
+    // Check that permission were granted
+    let updated_data = serde_json::from_str::<Value>(&format!(
+        r#"{{
+          "{}": {{
+            "test": "test_value"
+          }}
+        }}"#,
+        kudos_contract.id()
+    ))?;
+    let _ = fake_iah_registry
+        .call(&near_social_id, "set")
+        .args_json(json!({ "data": updated_data }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
 
     Ok(())
 }
