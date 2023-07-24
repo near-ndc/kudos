@@ -6,9 +6,36 @@ use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance, Gas};
 
+/// Return initial object as JSON [`String`] which will be stored in NEAR social db
+///
+/// Example of JSON output:
+/// ```json
+/// {
+///   "kudos.near": {
+///     "kudos": {},
+///     "hashtags": {}
+///   }
+/// }
+/// ```
+///
+/// ATTENTION: Changing this JSON output will require contract refactoring and re-computation
+/// of deposit requirement for all public methods
+pub fn build_initial_json_for_socialdb(root_id: &AccountId) -> Result<Value, &'static str> {
+    serde_json::from_str::<Value>(&format!(
+        r#"{{
+          "{root_id}": {{
+            "kudos": {{}},
+            "hashtags": {{}}
+          }}
+        }}"#
+    ))
+    .map_err(|_| "Internal serialization error")
+}
+
 /// Return hashtags relationship to kudos and it's owner as JSON [`String`] which will be stored in NEAR social db
 ///
-/// Example of JSON:
+/// Example of JSON output:
+/// ```json
 /// {
 ///   "lovendc": {
 ///     "1": "ndc.near",
@@ -16,6 +43,10 @@ use near_sdk::{AccountId, Balance, Gas};
 ///   },
 ///   ...
 /// }
+/// ```
+///
+/// ATTENTION: Changing this JSON output will require contract refactoring and re-computation
+/// of deposit requirement for public method [`give_kudos`](kudos_contract::public::Contract::give_kudos)
 pub fn build_hashtags(
     receiver_id: &AccountId,
     kudos_id: &KudosId,
@@ -42,12 +73,17 @@ pub fn build_hashtags(
 
 /// Return hashtags array as JSON [`String`] which will be stored in NEAR social db
 ///
-/// Example of JSON:
+/// Example of JSON output:
+/// ```json
 /// [
 ///   "nearcommunity",
 ///   "ndckudos",
 ///   ...
 /// ]
+/// ```
+///
+/// ATTENTION: Changing this JSON output will require contract refactoring and re-computation
+/// of deposit requirement for public method [`give_kudos`](kudos_contract::public::Contract::give_kudos)
 pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static str> {
     serde_json::to_string(&hashtags)
         .map(|s| s.escape_default().to_string())
@@ -56,7 +92,8 @@ pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static s
 
 /// Return kudos object as JSON [`String`] which will be stored in NEAR social db
 ///
-/// Example of JSON:
+/// Example of JSON output:
+/// ```json
 /// {
 ///   "kudos.near": {
 ///     "kudos": {
@@ -70,9 +107,21 @@ pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static s
 ///           "tags": "[[\"firstkudos\",\"awesomework\"]]",
 ///         }
 ///       }
+///     },
+///     "hashtags": {
+///       "firstkudos": {
+///         "1": "alex.near"
+///       },
+///       "awesomework": {
+///         "1": "alex.near"
+///       }
 ///     }
 ///   }
 /// }
+/// ```
+///
+/// ATTENTION: Changing this JSON output will require contract refactoring and re-computation
+/// of deposit requirement for public method [`give_kudos`](kudos_contract::public::Contract::give_kudos)
 pub fn build_give_kudos_request(
     root_id: &AccountId,
     sender_id: &AccountId,
@@ -109,7 +158,8 @@ pub fn build_give_kudos_request(
 
 /// Return upvotes for kudos object as JSON [`String`] which will be stored in NEAR social db
 ///
-/// Example of JSON:
+/// Example of JSON output:
+/// ```json
 /// {
 ///   "kudos.near": {
 ///     "kudos": {
@@ -123,6 +173,10 @@ pub fn build_give_kudos_request(
 ///     }
 ///   }
 /// }
+/// ```
+///
+/// ATTENTION: Changing this JSON output will require contract refactoring and re-computation
+/// of deposit requirement for public method [`upvote_kudos`](kudos_contract::public::Contract::upvote_kudos)
 pub fn build_upvote_kudos_request(
     root_id: &AccountId,
     sender_id: &AccountId,
@@ -149,7 +203,8 @@ pub fn build_upvote_kudos_request(
 
 /// Return base64-encoded commentary for kudos object as JSON [`String`] which will be stored in NEAR social db
 ///
-/// Example of JSON:
+/// Example of JSON output:
+/// ```json
 /// {
 ///   "kudos.near": {
 ///     "kudos": {
@@ -163,6 +218,10 @@ pub fn build_upvote_kudos_request(
 ///     }
 ///   }
 /// }
+/// ```
+///
+/// ATTENTION: Changing this JSON output will require contract refactoring and re-computation
+/// of deposit requirement for public method [`leave_comment`](kudos_contract::public::Contract::leave_comment)
 pub fn build_leave_comment_request(
     root_id: &AccountId,
     receiver_id: &AccountId,
@@ -232,6 +291,37 @@ pub fn extract_kudos_id_sender_from_response(req: &str, mut res: Value) -> Optio
 }
 
 /// Remove and return (if removed) [`serde_json::Value`] by key name [`str`] from JSON [`serde_json::Value`]
+///
+/// # Example:
+/// ```
+/// use kudos_contract::utils::remove_key_from_json;
+/// use near_sdk::serde_json;
+///
+/// let mut initial_value = serde_json::json!({
+///   "key1": {
+///     "key2": {
+///       "key3": {
+///         "key4": "value"
+///       }
+///     }
+///   }
+/// });
+/// let removed_value = remove_key_from_json(&mut initial_value, "key1/key2/key3");
+/// assert_eq!(
+///     initial_value,
+///     serde_json::json!({
+///       "key1": {
+///         "key2": {}
+///       }
+///     })
+/// );
+/// assert_eq!(
+///     removed_value,
+///     Some(serde_json::json!({
+///       "key4": "value"
+///     }))
+/// );
+/// ```
 pub fn remove_key_from_json(json: &mut Value, key: &str) -> Option<Value> {
     let mut json = Some(json);
     let mut keys = key.split("/").peekable();
@@ -290,6 +380,22 @@ mod tests {
     use near_sdk::json_types::U64;
     use near_sdk::serde_json::json;
     use near_units::parse_near;
+
+    #[test]
+    fn test_build_initial_json_for_socialdb() {
+        let root_id = AccountId::new_unchecked("kudos.near".to_owned());
+
+        let json_text = super::build_initial_json_for_socialdb(&root_id).unwrap();
+        assert_eq!(
+            json_text,
+            json!({
+                "kudos.near": {
+                  "kudos": {},
+                  "hashtags": {}
+                }
+            })
+        )
+    }
 
     #[test]
     fn test_build_hashtags() {

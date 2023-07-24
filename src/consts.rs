@@ -21,7 +21,7 @@ pub const PROOF_OF_KUDOS_SBT_CLASS_ID: u64 = 1;
 /// Required Ⓝ deposit to mint ProofOfKudos SBT by i-am-human-registry smart contract
 ///
 /// This value should be updated if mentioned contract will require different amount of deposit
-pub const PROOF_OF_KUDOS_SBT_MINT_COST: Balance = 6_000_000_000_000_000_000_000;
+pub const PROOF_OF_KUDOS_SBT_MINT_COST: Balance = 7_510_000_000_000_000_000_000;
 
 /// Required storage to memorise exchanged [`KudosId`] in [`LookupSet`] of this smart contract storage
 ///
@@ -36,6 +36,11 @@ pub const EXCHANGE_KUDOS_STORAGE: StorageUsage = STORAGE_ENTRY + ENUM_STORAGE_KE
 /// should be changed if any of the above will be changed
 pub const EXCHANGE_KUDOS_COST: Balance =
     EXCHANGE_KUDOS_STORAGE as Balance * STORAGE_PRICE_PER_BYTE + PROOF_OF_KUDOS_SBT_MINT_COST;
+
+/// Required storage for this contract registered as user at SocialDB to grant write permission to IAH Registry contract
+///
+/// This value was pre-computed by using maximum (64 characters) account id length for IAH Registry and this contracts.
+pub const SOCIAL_DB_GRANT_WRITE_PERMISSION_COST: Balance = 3_100_000_000_000_000_000_000;
 
 /// Deposit required to give kudos to user.
 ///

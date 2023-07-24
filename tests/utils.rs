@@ -1,12 +1,13 @@
 use anyhow::anyhow;
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
 use kudos_contract::{
-    CommentId, KudosId, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST, UPVOTE_KUDOS_COST,
+    CommentId, KudosId, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST,
+    PROOF_OF_KUDOS_SBT_MINT_COST, UPVOTE_KUDOS_COST,
 };
+use near_contract_standards::storage_management::{StorageBalance, StorageBalanceBounds};
 use near_sdk::json_types::U64;
 use near_sdk::serde_json::json;
-use near_sdk::AccountId;
-use near_units::parse_near;
+use near_sdk::{AccountId, ONE_YOCTO};
 use workspaces::result::ExecutionOutcome;
 
 pub async fn mint_fv_sbt(
@@ -16,7 +17,7 @@ pub async fn mint_fv_sbt(
     issued_at: u64,  // SBT issued at in millis
     expires_at: u64, // SBT expires at in millis
 ) -> anyhow::Result<Vec<u64>> {
-    let minted_tokens = issuer
+    let res = issuer
         .call(iah_registry_id, "sbt_mint")
         .args_json(json!({
           "token_spec": receivers.into_iter().map(|receiver_id| (receiver_id, [
@@ -30,13 +31,27 @@ pub async fn mint_fv_sbt(
             ])
             ).collect::<Vec<_>>()
         }))
-        .deposit(parse_near!("0.006 N") * receivers.len() as u128)
+        .deposit(PROOF_OF_KUDOS_SBT_MINT_COST * receivers.len() as u128)
         .max_gas()
         .transact()
         .await?
-        .json()?;
+        .into_result()
+        .map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Mint FV SBT failure: {:?}",
+                extract_error(e.outcomes().into_iter())
+            ))
+        });
 
-    Ok(minted_tokens)
+    res.and_then(|res| {
+        println!("gas burnt: {}", res.total_gas_burnt);
+        res.json().map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Failed to deserialize sbt_mint response: {e:?}. Receipts: {:?}",
+                res.receipt_outcomes()
+            ))
+        })
+    })
 }
 
 pub async fn verify_is_human(
@@ -245,6 +260,75 @@ pub async fn exchange_kudos_for_sbt(
             ))
         })
     })
+}
+
+pub async fn set_external_db(
+    kudos_contract_id: &workspaces::AccountId,
+    owner: &workspaces::Account,
+    near_social: &workspaces::Contract,
+) -> anyhow::Result<()> {
+    let balance_bounds: StorageBalanceBounds = near_social
+        .view("storage_balance_bounds")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+
+    let _ = owner
+        .call(kudos_contract_id, "set_external_db")
+        .args_json(json!({
+            "external_db_id": near_social.id()
+        }))
+        .deposit(balance_bounds.min.0 + ONE_YOCTO)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()
+        .map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Set external database failure: {:?}",
+                extract_error(e.outcomes().into_iter())
+            ))
+        })?;
+
+    Ok(())
+}
+
+pub async fn update_iah_registry(
+    kudos_contract_id: &workspaces::AccountId,
+    owner: &workspaces::Account,
+    iah_registry: &workspaces::AccountId,
+) -> anyhow::Result<()> {
+    let _ = owner
+        .call(kudos_contract_id, "update_iah_registry")
+        .args_json(json!({ "iah_registry": iah_registry }))
+        //.deposit(balance_bounds.min.0)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()
+        .map_err(|e| {
+            anyhow::Error::msg(format!(
+                "Update IAH registry failure: {:?}",
+                extract_error(e.outcomes().into_iter())
+            ))
+        })?;
+
+    Ok(())
+}
+
+pub async fn storage_balance_of(
+    contract_id: &workspaces::AccountId,
+    user: &workspaces::Account,
+) -> anyhow::Result<Option<StorageBalance>> {
+    user.view(contract_id, "storage_balance_of")
+        .args_json(json!({
+          "account_id": user.id()
+        }))
+        .await?
+        .json()
+        .map_err(|e| {
+            anyhow::Error::msg(format!("Storage balance of `{}` failure: {e:?}", user.id(),))
+        })
 }
 
 // TODO: pass iterators instead

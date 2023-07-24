@@ -3,6 +3,7 @@ use crate::Hashtag;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
+/// Settings for this contract
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct Settings {
     pub commentary_message_max_length: u16,

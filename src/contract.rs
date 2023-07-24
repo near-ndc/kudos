@@ -1,10 +1,15 @@
+use crate::external_db::ext_db;
 use crate::misc::RunningState;
 use crate::settings::{Settings, SettingsView, VSettings};
 use crate::types::{KudosId, StorageKey};
+use crate::utils::build_initial_json_for_socialdb;
 use crate::IncrementalUniqueId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupSet;
-use near_sdk::{env, near_bindgen, require, AccountId, PanicOnDefault};
+use near_sdk::{
+    env, near_bindgen, require, AccountId, Balance, PanicOnDefault, Promise, PromiseError,
+    ONE_YOCTO,
+};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -49,45 +54,40 @@ impl Contract {
     /// Replaces [`AccountId`] of i-am-human-registry smart contract which is used to verify humanity and
     /// to exchange kudos for ProofOfKudos SBT. Restricted to be used only by an owner/admin of this contract.
     #[payable]
-    pub fn update_iah_registry(&mut self, iah_registry: AccountId) {
+    #[handle_result]
+    pub fn update_iah_registry(&mut self, iah_registry: AccountId) -> Result<Promise, String> {
         self.assert_owner();
-        // `is_human_call` is not being used by this smart contract anymore. Uncomment code below if
-        // if `is_human_call` will be used again.
-        // This check is here because if `is_human_call` is used, it requires a write permission to
-        // use NEAR social db `set` method. If we change i-am-human-registry, the new write permission should be
-        // granted. This is not implemented yet and restricted until implemented.
-        // require!(self.external_db_id == None, "IAH registry should be set before external database");
-        self.iah_registry = iah_registry;
+
+        let external_db_id = self.external_db_id()?.clone();
+
+        self.grant_write_permission(external_db_id, iah_registry, env::attached_deposit())
     }
 
     /// Sets [`AccoundId`] of NEAR social db smart contract as an external storage for kudos.
     /// Restricted to be used only by an owner/admin of this contract.
     #[payable]
-    pub fn set_external_db(&mut self, external_db_id: AccountId) {
+    #[handle_result]
+    pub fn set_external_db(&mut self, external_db_id: AccountId) -> Result<Promise, &'static str> {
         self.assert_owner();
-        require!(self.external_db_id == None, "External database already set");
+        // Do not allow to change SocialDB address, because there is no data migration possible.
+        // It should be initialized only once.
+        require!(
+            self.external_db_id.is_none(),
+            "External database already set"
+        );
 
-        // `is_human_call` is not being used by this smart contract anymore. Uncomment code below if
-        // if `is_human_call` will be used again.
-        // Grant write permission to IAH Registry to be able to use `IAHRegistry::is_human_call`,
-        // because SocialDB checks for a predecessor_id.
+        let root_id = env::current_account_id();
+        let initial_json = build_initial_json_for_socialdb(&root_id)?;
+
         // This will require a minimum amount of deposit to register a user for Kudos contract.
         // Minimum amount of deposit required could be priorly acquired by calling a view method
-        // `storage_balance_bounds` to Social-Db contract
-        // ext_db::ext(external_db_id.clone())
-        //     .with_attached_deposit(env::attached_deposit())
-        //     .grant_write_permission(
-        //         Some(self.iah_registry.clone()),
-        //         None,
-        //         vec![format!("{}", env::current_account_id())],
-        //     )
-        //     .then(
-        //         Self::ext(env::current_account_id())
-        //             .on_ext_db_write_permission_granted(external_db_id),
-        //     )
-        //     .into()
-        // The code below should be removed if `is_human_call` will be used again.
-        self.external_db_id = Some(external_db_id);
+        // `storage_balance_bounds` to Social-Db contract and one yocto additionally should be added
+        // to request `grant_write_permission` method
+        Ok(ext_db::ext(external_db_id.clone())
+            .with_attached_deposit(env::attached_deposit() - ONE_YOCTO)
+            .set(initial_json)
+            .then(Self::ext(env::current_account_id()).on_ext_db_init(external_db_id, ONE_YOCTO))
+            .into())
     }
 
     /// Public view method to read current settings [`SettingsView`] of this contract
@@ -104,18 +104,65 @@ impl Contract {
         self.settings = self.settings.apply_changes(settings_json);
     }
 
-    // #[private]
-    // #[handle_result]
-    // pub fn on_ext_db_write_permission_granted(
-    //     &mut self,
-    //     external_db_id: AccountId,
-    //     #[callback_result] callback_result: Result<(), PromiseError>,
-    // ) -> Result<(), String> {
-    //     callback_result
-    //         .map_err(|e| format!("SocialDB::grant_write_permission() call failure: {:?}", e))?;
-    //     self.external_db_id = Some(external_db_id);
-    //     Ok(())
-    // }
+    /// Internal helper method to grant write permission to IAH Registry
+    ///
+    /// Write permissions required to be able to use `IAHRegistry::is_human_call`, because SocialDB checks for a predecessor_id.
+    ///
+    /// ATTENTION: `is_human_call` is not being used by this smart contract right now, but we still want to be able
+    /// to use it in future, so the code below is necessary.
+    fn grant_write_permission(
+        &mut self,
+        external_db_id: AccountId,
+        iah_registry: AccountId,
+        deposit: Balance,
+    ) -> Result<Promise, String> {
+        Ok(ext_db::ext(external_db_id.clone())
+            .with_attached_deposit(deposit)
+            .grant_write_permission(
+                Some(iah_registry.clone()),
+                None,
+                vec![format!("{}", env::current_account_id())],
+            )
+            .then(
+                Self::ext(env::current_account_id())
+                    .on_ext_db_write_permission_granted(external_db_id, iah_registry),
+            )
+            .into())
+    }
+
+    #[private]
+    #[handle_result]
+    pub fn on_ext_db_init(
+        &mut self,
+        external_db_id: AccountId,
+        deposit: Balance,
+        #[callback_result] callback_result: Result<(), PromiseError>,
+    ) -> Result<Promise, String> {
+        callback_result.map_err(|e| format!("SocialDB::set() call failure: {:?}", e))?;
+
+        self.grant_write_permission(external_db_id, self.iah_registry.clone(), deposit)
+    }
+
+    #[private]
+    #[handle_result]
+    pub fn on_ext_db_write_permission_granted(
+        &mut self,
+        external_db_id: AccountId,
+        iah_registry: AccountId,
+        #[callback_result] callback_result: Result<(), PromiseError>,
+    ) -> Result<(), String> {
+        callback_result.map_err(|e| {
+            format!(
+                "SocialDB::grant_write_permission(`{iah_registry}`) call failure: {:?}",
+                e
+            )
+        })?;
+
+        self.iah_registry = iah_registry;
+        self.external_db_id = Some(external_db_id);
+
+        Ok(())
+    }
 }
 
 impl Contract {
