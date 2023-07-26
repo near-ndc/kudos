@@ -1,4 +1,4 @@
-use super::utils::parse_kudos_and_verify_upvotes;
+use super::utils::parse_kudos_and_verify_if_allowed_to_exchange;
 use crate::consts::*;
 use crate::external_db::ext_db;
 use crate::registry::{ext_sbtreg, TokenId};
@@ -32,6 +32,7 @@ impl Contract {
                 let kudos_upvotes_path =
                     build_kudos_upvotes_path(&root_id, &receiver_id, &kudos_id);
                 let acquire_upvotes_req = [&kudos_upvotes_path, "/*"].concat();
+                let kudos_kind_path = build_kudos_kind_path(&root_id, &receiver_id, &kudos_id);
 
                 let upvotes_acquired_callback_gas = KUDOS_UPVOTES_ACQUIRED_CALLBACK_GAS
                     + PROOF_OF_KUDOS_SBT_MINT_GAS
@@ -43,7 +44,7 @@ impl Contract {
 
                 Ok(ext_db::ext(external_db_id)
                     .with_static_gas(acquire_upvotes_gas)
-                    .keys(vec![acquire_upvotes_req], None)
+                    .get(vec![acquire_upvotes_req, kudos_kind_path.clone()], None)
                     .then(
                         Self::ext(env::current_account_id())
                             .with_static_gas(upvotes_acquired_callback_gas)
@@ -52,6 +53,7 @@ impl Contract {
                                 attached_deposit,
                                 kudos_id,
                                 kudos_upvotes_path,
+                                kudos_kind_path,
                             ),
                     ))
             });
@@ -74,13 +76,15 @@ impl Contract {
         attached_deposit: Balance,
         kudos_id: KudosId,
         kudos_upvotes_path: String,
+        kudos_kind_path: String,
         #[callback_result] kudos_result: Result<Value, PromiseError>,
     ) -> Promise {
         let settings = Settings::from(&self.settings);
 
-        match parse_kudos_and_verify_upvotes(
+        match parse_kudos_and_verify_if_allowed_to_exchange(
             kudos_result,
             kudos_upvotes_path,
+            kudos_kind_path,
             settings.min_number_of_upvotes_to_exchange_kudos as usize,
         )
         .and_then(|_| {

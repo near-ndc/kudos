@@ -1,6 +1,6 @@
 use crate::consts::{EXCHANGE_KUDOS_COST, EXCHANGE_KUDOS_STORAGE};
 use crate::tests::utils::{build_default_context, promise_or_value_result_into_result, MAX_GAS};
-use crate::utils::build_kudos_upvotes_path;
+use crate::utils::{build_kudos_kind_path, build_kudos_upvotes_path};
 use crate::{Contract, IncrementalUniqueId, KudosId, PROOF_OF_KUDOS_SBT_MINT_COST};
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::serde_json::json;
@@ -53,20 +53,23 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     let receiver_id = accounts(0);
     let sender_id = accounts(1);
     let kudos_upvotes_path = build_kudos_upvotes_path(&contract_id, &receiver_id, &kudos_id);
+    let kudos_kind_path = build_kudos_kind_path(&contract_id, &receiver_id, &kudos_id);
     kudos_contract.on_kudos_upvotes_acquired(
         sender_id.clone(),
         EXCHANGE_KUDOS_COST,
         kudos_id.clone(),
         kudos_upvotes_path.clone(),
+        kudos_kind_path.clone(),
         Ok(json!({
             "kudos.near": {
               "kudos": {
                 "alice": {
                   "1": {
+                    "kind": "k",
                     "upvotes": {
-                      "charlie": true,
-                      "danny": true,
-                      "eugene": true
+                      "charlie": "",
+                      "danny": "",
+                      "eugene": ""
                     }
                   }
                 }
@@ -78,15 +81,16 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     // calls another failure callback in case of failure. So we verify balance change,
     // if we get full refund then it's an error, otherwise we attach `PROOF_OF_KUDOS_SBT_MINT_COST`
     // to next XCC
-    let used_balance = initial_balance - env::account_balance();
-    assert_eq!(used_balance, PROOF_OF_KUDOS_SBT_MINT_COST);
+    let used_deposit = initial_balance - env::account_balance();
+    assert_eq!(used_deposit, PROOF_OF_KUDOS_SBT_MINT_COST);
 
     let initial_balance = env::account_balance();
     kudos_contract.on_kudos_upvotes_acquired(
-        sender_id,
+        sender_id.clone(),
         EXCHANGE_KUDOS_COST,
-        kudos_id,
-        kudos_upvotes_path,
+        kudos_id.clone(),
+        kudos_upvotes_path.clone(),
+        kudos_kind_path.clone(),
         Ok(json!({
             "kudos.near": {
               "kudos": {
@@ -100,8 +104,36 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
         })),
     );
     // Not enough upvotes, full attached deposit returned
-    let used_balance = initial_balance - env::account_balance();
-    assert_eq!(used_balance, EXCHANGE_KUDOS_COST);
+    let transferred_deposit = initial_balance - env::account_balance();
+    assert_eq!(transferred_deposit, EXCHANGE_KUDOS_COST);
+
+    let initial_balance = env::account_balance();
+    kudos_contract.on_kudos_upvotes_acquired(
+        sender_id,
+        EXCHANGE_KUDOS_COST,
+        kudos_id,
+        kudos_upvotes_path,
+        kudos_kind_path,
+        Ok(json!({
+            "kudos.near": {
+              "kudos": {
+                "alice": {
+                  "1": {
+                    "kind": "d",
+                    "upvotes": {
+                      "charlie": "",
+                      "danny": "",
+                      "eugene": ""
+                    }
+                  }
+                }
+              }
+            }
+        })),
+    );
+    // Ding kind couldn't be exchanged, full attached deposit returned
+    let transferred_deposit = initial_balance - env::account_balance();
+    assert_eq!(transferred_deposit, EXCHANGE_KUDOS_COST);
 
     Ok(())
 }

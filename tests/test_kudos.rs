@@ -166,7 +166,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     assert_eq!(
         kudos_data.to_string(),
         format!(
-            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"icon":"bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku","message":"{escaped_kudos_message}","sender_id":"{}","tags":"{}"}}}}}}}}}}"#,
+            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"icon":"bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku","kind":"k","message":"{escaped_kudos_message}","sender_id":"{}","tags":"{}"}}}}}}}}}}"#,
             kudos_contract.id(),
             user2_account.id(),
             user1_account.id(),

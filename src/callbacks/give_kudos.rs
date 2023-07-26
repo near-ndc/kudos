@@ -1,7 +1,7 @@
 use crate::external_db::ext_db;
 use crate::registry::TokenId;
 use crate::types::KudosId;
-use crate::{consts::*, EscapedMessage, Hashtag};
+use crate::{consts::*, EscapedMessage, Hashtag, KudosKind};
 use crate::{utils::*, WrappedCid};
 use crate::{Contract, ContractExt};
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, PromiseOrValue};
@@ -15,6 +15,7 @@ impl Contract {
         attached_deposit: Balance,
         external_db_id: AccountId,
         receiver_id: AccountId,
+        kind: KudosKind,
         message: EscapedMessage,
         icon_cid: Option<WrappedCid>,
         hashtags: Option<Vec<Hashtag>>,
@@ -37,6 +38,7 @@ impl Contract {
                     &receiver_id,
                     &kudos_id,
                     created_at,
+                    kind,
                     &message,
                     icon_cid.as_ref(),
                     hashtags.as_deref(),

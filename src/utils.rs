@@ -1,7 +1,7 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
 use crate::types::KudosId;
-use crate::{CommentId, EncodedCommentary, EscapedMessage, Hashtag, WrappedCid};
+use crate::{CommentId, EncodedCommentary, EscapedMessage, Hashtag, KudosKind, WrappedCid};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance, Gas};
@@ -129,6 +129,7 @@ pub fn build_give_kudos_request(
     receiver_id: &AccountId,
     kudos_id: &KudosId,
     created_at: u64,
+    kind: KudosKind,
     message: &EscapedMessage,
     icon_cid: Option<&WrappedCid>,
     hashtags: Option<&[Hashtag]>,
@@ -145,6 +146,7 @@ pub fn build_give_kudos_request(
                 "{kudos_id}": {{
                   "created_at": "{created_at}",
                   "sender_id": "{sender_id}",
+                  "kind": "{kind}",
                   "message": "{message}",
                   "icon": "{icon_cid}",
                   "upvotes": {{}},
@@ -277,6 +279,18 @@ pub fn build_kudos_upvotes_path(
     kudos_id: &KudosId,
 ) -> String {
     format!("{root_id}/kudos/{receiver_id}/{kudos_id}/upvotes")
+}
+
+/// Return [`String`] path to a stored kudos kind type with unique [`KudosId`] for a valid [`AccountId`]
+/// used to query from NEAR social db.
+///
+/// Example of query: "kudos.near/kudos/bob.near/1/kind"
+pub fn build_kudos_kind_path(
+    root_id: &AccountId,
+    receiver_id: &AccountId,
+    kudos_id: &KudosId,
+) -> String {
+    format!("{root_id}/kudos/{receiver_id}/{kudos_id}/kind")
 }
 
 /// Return [`TokenMetadata`] used as an argument for call [`sbt_mint`](kudos_contract::registry::ExtSbtRegistry::sbt_mint)
@@ -457,6 +471,7 @@ mod tests {
                 &receiver_id,
                 &next_kudos_id,
                 1234567890u64,
+                KudosKind::Kudos,
                 &message,
                 Some(&icon_cid),
                 Some(&[
@@ -470,7 +485,7 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","icon":"bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
+            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","icon":"bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa","kind":"k","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
         );
 
         let json_text = serde_json::to_string(
@@ -480,6 +495,7 @@ mod tests {
                 &receiver_id,
                 &next_kudos_id,
                 1234567890u64,
+                KudosKind::Ding,
                 &message,
                 None,
                 Some(&[
@@ -493,7 +509,7 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","icon":"","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
+            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","icon":"","kind":"d","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
         );
     }
 

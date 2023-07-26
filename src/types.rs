@@ -265,6 +265,31 @@ impl Serialize for WrappedCid {
     }
 }
 
+/// The type of a kudos given
+///
+/// [`Kudos`](KudosKind::Kudos) represents a positive kudos, while [`Ding`](KudosKind::Ding) represents a negative one
+#[derive(Serialize, Deserialize, Default, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Clone, Debug))]
+#[serde(crate = "near_sdk::serde")]
+pub enum KudosKind {
+    #[default]
+    #[serde(rename = "k")]
+    Kudos,
+    #[serde(rename = "d")]
+    Ding,
+}
+
+impl Display for KudosKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let kind = match self {
+            Self::Kudos => "k",
+            Self::Ding => "d",
+        };
+
+        write!(f, "{kind}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{Commentary, EncodedCommentary, EscapedMessage, Hashtag, WrappedCid};

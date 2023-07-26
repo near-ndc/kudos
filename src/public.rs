@@ -1,6 +1,6 @@
 use crate::registry::{ext_sbtreg, IS_HUMAN_GAS};
 use crate::settings::Settings;
-use crate::types::{Commentary, KudosId, WrappedCid};
+use crate::types::{Commentary, KudosId, KudosKind, WrappedCid};
 use crate::{consts::*, EncodedCommentary, EscapedMessage};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
@@ -194,6 +194,7 @@ impl Contract {
     pub fn give_kudos(
         &mut self,
         receiver_id: AccountId,
+        kind: Option<KudosKind>,
         message: String,
         icon_cid: Option<WrappedCid>,
         hashtags: Option<Vec<String>>,
@@ -225,6 +226,7 @@ impl Contract {
         );
 
         let settings = Settings::from(&self.settings);
+        let kind = kind.unwrap_or_default();
         let hashtags = settings.validate_hashtags(hashtags.as_deref())?;
         let message =
             EscapedMessage::new(&message, settings.commentary_message_max_length as usize)?;
@@ -245,6 +247,7 @@ impl Contract {
                         attached_deposit,
                         external_db_id,
                         receiver_id,
+                        kind,
                         message,
                         icon_cid,
                         hashtags,
