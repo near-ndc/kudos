@@ -10,7 +10,6 @@ use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, Pro
 #[near_bindgen]
 impl Contract {
     #[private]
-    #[allow(clippy::too_many_arguments)]
     pub fn acquire_kudos_info(
         &mut self,
         predecessor_account_id: AccountId,
@@ -82,7 +81,6 @@ impl Contract {
     }
 
     #[private]
-    #[allow(clippy::too_many_arguments)]
     pub fn on_kudos_info_acquired(
         &mut self,
         predecessor_account_id: AccountId,

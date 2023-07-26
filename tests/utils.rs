@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use kudos_contract::registry::{OwnedToken, TokenMetadata};
 use kudos_contract::{
-    CommentId, KudosId, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST,
+    CommentId, KudosId, WrappedCid, EXCHANGE_KUDOS_COST, GIVE_KUDOS_COST, LEAVE_COMMENT_COST,
     PROOF_OF_KUDOS_SBT_MINT_COST, SOCIAL_DB_GRANT_WRITE_PERMISSION_COST, UPVOTE_KUDOS_COST,
 };
 use near_contract_standards::storage_management::{StorageBalance, StorageBalanceBounds};
@@ -126,6 +126,7 @@ pub async fn give_kudos(
     sender: &workspaces::Account,
     receiver_id: &workspaces::AccountId,
     message: &str,
+    icon_cid: Option<&WrappedCid>,
     hashtags: Vec<&str>,
 ) -> anyhow::Result<KudosId> {
     let res = sender
@@ -134,6 +135,7 @@ pub async fn give_kudos(
             "receiver_id": receiver_id,
             "message": message,
             "hashtags": hashtags,
+            "icon_cid": icon_cid
         }))
         .deposit(GIVE_KUDOS_COST)
         .max_gas()

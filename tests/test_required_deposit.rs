@@ -4,7 +4,7 @@ mod workspaces;
 
 use crate::utils::*;
 use crate::workspaces::{build_contract, gen_user_account, get_block_timestamp, transfer_near};
-use kudos_contract::utils::*;
+use kudos_contract::{utils::*, WrappedCid};
 use kudos_contract::{GIVE_KUDOS_COST, LEAVE_COMMENT_COST, UPVOTE_KUDOS_COST};
 use near_sdk::serde_json::json;
 use near_units::parse_near;
@@ -125,6 +125,10 @@ async fn test_required_deposit() -> anyhow::Result<()> {
         &test1_account,
         test2_account.id(),
         &kudos_text,
+        Some(
+            WrappedCid::new("bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi").unwrap(),
+        )
+        .as_ref(),
         hashtags.iter().map(|s| s.as_str()).collect(),
     )
     .await?;

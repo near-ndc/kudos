@@ -32,10 +32,11 @@ Deposit required: 0.1 Ⓝ
 #### Interface
 
 ```
-give_kudos(receiver_id, message, hashtags): kudos id
+give_kudos(receiver_id, message, icon_cid, hashtags): kudos id
 
 - receiver_id: user's NEAR account id who should be granted with kudos
 - message: followed commentary message text to the kudos granted. By default limits to 1000 characters
+- icon_cid: optional valid CID for icon (image) at ipfs
 - hashtags: optional array of user-specified tags (restricted to 32 alphanumeric characters). By default maximum allowed number of hashtags is 10
 
 Returns unique kudos identifier or panics with an error message

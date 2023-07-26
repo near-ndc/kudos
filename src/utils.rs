@@ -1,7 +1,7 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
 use crate::types::KudosId;
-use crate::{CommentId, EncodedCommentary, EscapedMessage, Hashtag};
+use crate::{CommentId, EncodedCommentary, EscapedMessage, Hashtag, WrappedCid};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance, Gas};
@@ -102,6 +102,7 @@ pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static s
 ///           "created_at": "1689976833613",
 ///           "sender_id": "alex.near",
 ///           "message": "that user is awesome",
+///           "icon": "bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa",
 ///           "upvotes": {},
 ///           "comments": {},
 ///           "tags": "[[\"firstkudos\",\"awesomework\"]]",
@@ -129,10 +130,12 @@ pub fn build_give_kudos_request(
     kudos_id: &KudosId,
     created_at: u64,
     message: &EscapedMessage,
+    icon_cid: Option<&WrappedCid>,
     hashtags: Option<&[Hashtag]>,
 ) -> Result<Value, &'static str> {
     let hashtags_as_array_json = hashtags_to_json_array(hashtags.unwrap_or(&[]))?;
     let hashtags_with_kudos = build_hashtags(receiver_id, kudos_id, hashtags)?;
+    let icon_cid = icon_cid.map(|cid| cid.to_string()).unwrap_or_default();
 
     serde_json::from_str::<Value>(&format!(
         r#"{{
@@ -143,6 +146,7 @@ pub fn build_give_kudos_request(
                   "created_at": "{created_at}",
                   "sender_id": "{sender_id}",
                   "message": "{message}",
+                  "icon": "{icon_cid}",
                   "upvotes": {{}},
                   "comments": {{}},
                   "tags": "{hashtags_as_array_json}"
@@ -153,7 +157,10 @@ pub fn build_give_kudos_request(
           }}
         }}"#
     ))
-    .map_err(|_| "Internal serialization error")
+    .map_err(|e| {
+        println!("{e:?}");
+        "Internal serialization error"
+    })
 }
 
 /// Return upvotes for kudos object as JSON [`String`] which will be stored in NEAR social db
@@ -440,6 +447,8 @@ mod tests {
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
         let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
         let message = EscapedMessage::new(r#""a","b":{"t":"multi\nline"},"#, 1000).unwrap();
+        let icon_cid =
+            WrappedCid::new("bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa").unwrap();
 
         let json_text = serde_json::to_string(
             &super::build_give_kudos_request(
@@ -449,6 +458,7 @@ mod tests {
                 &next_kudos_id,
                 1234567890u64,
                 &message,
+                Some(&icon_cid),
                 Some(&[
                     Hashtag::new("abc", 32).unwrap(),
                     Hashtag::new("def", 32).unwrap(),
@@ -460,7 +470,30 @@ mod tests {
 
         assert_eq!(
             json_text,
-            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
+            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","icon":"bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
+        );
+
+        let json_text = serde_json::to_string(
+            &super::build_give_kudos_request(
+                &root_id,
+                &sender_id,
+                &receiver_id,
+                &next_kudos_id,
+                1234567890u64,
+                &message,
+                None,
+                Some(&[
+                    Hashtag::new("abc", 32).unwrap(),
+                    Hashtag::new("def", 32).unwrap(),
+                ]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            json_text,
+            r#"{"kudos.near":{"hashtags":{"abc":{"1":"test2.near"},"def":{"1":"test2.near"}},"kudos":{"test2.near":{"1":{"comments":{},"created_at":"1234567890","icon":"","message":"\"a\",\"b\":{\"t\":\"multi\\nline\"},","sender_id":"test1.near","tags":"[\"abc\",\"def\"]","upvotes":{}}}}}}"#
         );
     }
 

@@ -1,15 +1,14 @@
 use crate::external_db::ext_db;
 use crate::registry::TokenId;
 use crate::types::KudosId;
-use crate::utils::*;
 use crate::{consts::*, EscapedMessage, Hashtag};
+use crate::{utils::*, WrappedCid};
 use crate::{Contract, ContractExt};
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, PromiseOrValue};
 
 #[near_bindgen]
 impl Contract {
     #[private]
-    #[allow(clippy::too_many_arguments)]
     pub fn save_kudos(
         &mut self,
         predecessor_account_id: AccountId,
@@ -17,6 +16,7 @@ impl Contract {
         external_db_id: AccountId,
         receiver_id: AccountId,
         message: EscapedMessage,
+        icon_cid: Option<WrappedCid>,
         hashtags: Option<Vec<Hashtag>>,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
     ) -> Promise {
@@ -38,6 +38,7 @@ impl Contract {
                     &kudos_id,
                     created_at,
                     &message,
+                    icon_cid.as_ref(),
                     hashtags.as_deref(),
                 )?;
 

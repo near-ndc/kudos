@@ -1,6 +1,6 @@
 use crate::registry::{ext_sbtreg, IS_HUMAN_GAS};
 use crate::settings::Settings;
-use crate::types::{Commentary, KudosId};
+use crate::types::{Commentary, KudosId, WrappedCid};
 use crate::{consts::*, EncodedCommentary, EscapedMessage};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
@@ -195,6 +195,7 @@ impl Contract {
         &mut self,
         receiver_id: AccountId,
         message: String,
+        icon_cid: Option<WrappedCid>,
         hashtags: Option<Vec<String>>,
     ) -> Result<Promise, &'static str> {
         self.assert_contract_running();
@@ -245,6 +246,7 @@ impl Contract {
                         external_db_id,
                         receiver_id,
                         message,
+                        icon_cid,
                         hashtags,
                     ),
             ))

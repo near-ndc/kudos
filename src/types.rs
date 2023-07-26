@@ -1,12 +1,14 @@
+use cid::Cid;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
-use near_sdk::serde::{self, Deserialize, Serialize};
+use near_sdk::serde::{self, de, Deserialize, Deserializer, Serialize, Serializer};
 use near_sdk::{
     serde_json::{self, json},
     AccountId, BorshStorageKey,
 };
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 /// This type represents a unique incremental identifier
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -220,9 +222,52 @@ impl Display for EncodedCommentary {
     }
 }
 
+/// This type represents a wrapped serializable version of [`Cid`]
+pub struct WrappedCid(Cid);
+
+impl WrappedCid {
+    /// Creates [`WrappedCid`] from ref string
+    pub fn new(cid: &str) -> Result<Self, &'static str> {
+        if cid.len() > 64 {
+            return Err("Cid is too long");
+        }
+        Cid::from_str(cid)
+            .map_err(|_| "Not a valid Cid")
+            .map(WrappedCid)
+    }
+}
+
+impl Display for WrappedCid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for WrappedCid {
+    fn deserialize<D>(deserializer: D) -> Result<WrappedCid, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let cid_text = <String as Deserialize>::deserialize(deserializer)?;
+
+        Cid::from_str(&cid_text)
+            .map(WrappedCid)
+            .map_err(|e| de::Error::custom(format!("Failed to deserialize CID: {e:?}")))
+    }
+}
+
+impl Serialize for WrappedCid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{Commentary, EncodedCommentary, EscapedMessage, Hashtag};
+    use crate::{Commentary, EncodedCommentary, EscapedMessage, Hashtag, WrappedCid};
     use assert_matches::assert_matches;
     use near_sdk::json_types::U64;
     use near_sdk::AccountId;
@@ -257,5 +302,26 @@ mod tests {
         assert_matches!(EscapedMessage::new(r#""quoted_message""#, 1000), Ok(s) if s.0.as_str() == "\\\"quoted_message\\\"");
         assert_matches!(EscapedMessage::new(&"b".repeat(32), 32), Ok(_));
         assert_matches!(EscapedMessage::new(&"a".repeat(32), 31), Err(_));
+    }
+
+    #[test]
+    fn test_wrapped_cid() {
+        assert!(WrappedCid::new("invalid_cid").is_err());
+        // Verify V1 CID
+        assert_eq!(
+            WrappedCid::new("bafkreieq5jui4j25lacwomsqgjeswwl3y5zcdrresptwgmfylxo2depppq")
+                .unwrap()
+                .to_string()
+                .as_str(),
+            "bafkreieq5jui4j25lacwomsqgjeswwl3y5zcdrresptwgmfylxo2depppq"
+        );
+        // Verify V0 CID
+        assert_eq!(
+            &format!(
+                "{}",
+                WrappedCid::new("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n").unwrap()
+            ),
+            "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
+        );
     }
 }

@@ -5,6 +5,7 @@ mod workspaces;
 use crate::types::*;
 use crate::utils::*;
 use crate::workspaces::{build_contract, gen_user_account, get_block_timestamp, transfer_near};
+use kudos_contract::WrappedCid;
 use kudos_contract::{utils::*, CommentId};
 use kudos_contract::{Commentary, PROOF_OF_KUDOS_SBT_CLASS_ID};
 use near_sdk::serde_json::{self, json, Value};
@@ -125,6 +126,10 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         &user1_account,
         user2_account.id(),
         &kudos_message,
+        Some(
+            &WrappedCid::new("bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")
+                .unwrap(),
+        ),
         hashtags.iter().map(|s| s.as_str()).collect(),
     )
     .await?;
@@ -161,7 +166,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     assert_eq!(
         kudos_data.to_string(),
         format!(
-            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"message":"{escaped_kudos_message}","sender_id":"{}","tags":"{}"}}}}}}}}}}"#,
+            r#"{{"{}":{{"kudos":{{"{}":{{"{kudos_id}":{{"icon":"bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku","message":"{escaped_kudos_message}","sender_id":"{}","tags":"{}"}}}}}}}}}}"#,
             kudos_contract.id(),
             user2_account.id(),
             user1_account.id(),
@@ -388,6 +393,7 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
         &user2_account,
         user1_account.id(),
         "blablabla",
+        None,
         vec!["hta", "htb"],
     )
     .await?;
@@ -546,6 +552,7 @@ async fn test_mass_give_kudos() -> anyhow::Result<()> {
             &user_account,
             users_accounts.first().unwrap().id(),
             &kudos_message,
+            None,
             hashtags.iter().map(|s| s.as_str()).collect(),
         )
         .await?;
