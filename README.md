@@ -38,8 +38,40 @@ give_kudos(receiver_id, message, icon_cid, hashtags): kudos id
 - message: followed commentary message text to the kudos granted. By default limits to 1000 characters
 - icon_cid: optional valid CID for icon (image) at ipfs
 - hashtags: optional array of user-specified tags (restricted to 32 alphanumeric characters). By default maximum allowed number of hashtags is 10
+```
+
+#### Output
 
 Returns unique kudos identifier or panics with an error message
+
+Example JSON written to SocialDB:
+```
+{
+  "kudos.near": {
+    "kudos": {
+      "some_user.near": {
+        "1": {
+          "created_at": "1689976833613",
+          "sender_id": "alex.near",
+          "kind": "k",
+          "message": "that user is awesome",
+          "icon": "bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa",
+          "upvotes": {},
+          "comments": {},
+          "tags": "[[\"firstkudos\",\"awesomework\"]]",
+        }
+      }
+    },
+    "hashtags": {
+      "firstkudos": {
+        "1": "alex.near"
+      },
+      "awesomework": {
+        "1": "alex.near"
+      }
+    }
+  }
+}
 ```
 
 ### Upvote kudos
@@ -62,8 +94,27 @@ upvote_kudos(receiver_id, kudos_id): timestamp
 
 - receiver_id: user's NEAR account id whos unique kudos should be upvoted
 - kudos_id: unique kudos identified granted to a receiver NEAR account
+```
+
+#### Output
 
 Returns stringified timestamp of block when kudos was upvoted or panics with an error message
+
+Example JSON written to SocialDB:
+```
+{
+  "kudos.near": {
+    "kudos": {
+      "some_user.near": {
+        "1": {
+          "upvotes": {
+            "bob.near": ""
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
 ### Leave commentary message to kudos
@@ -85,8 +136,27 @@ leave_comment(receiver_id, kudos_id, message): commentary id
 - receiver_id: user's NEAR account id whos unique kudos should be upvoted
 - kudos_id: unique kudos identified granted to a receiver NEAR account
 - message: followed commentary message text to the kudos. By default limits to 1000 characters
+```
+
+#### Output
 
 Returns unique commentary identifier or panics with an error message
+
+Example JSON written to SocialDB:
+```
+{
+  "kudos.near": {
+    "kudos": {
+      "some_user.near": {
+        "1": {
+          "comments": {
+            "2": "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicyI6InVzZXIubmVhciIsInQiOiIxMjM0NTY3ODkwIn0="
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
 ### Exchange upvoted kudos for ProofOfKudos SBT
@@ -108,6 +178,8 @@ Deposit required: 0.008 Ⓝ
 exchange_kudos_for_sbt(kudos_id): array of minted SBTs
 
 - kudos_id: unique kudos identified granted to a caller NEAR account
+```
+
+#### Output
 
 Returns an array of minted ProofOfKudos SBTs in exchange for kudos or panics with an error message
-```

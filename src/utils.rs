@@ -101,6 +101,7 @@ pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static s
 ///         "1": {
 ///           "created_at": "1689976833613",
 ///           "sender_id": "alex.near",
+///           "kind": "k",
 ///           "message": "that user is awesome",
 ///           "icon": "bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa",
 ///           "upvotes": {},
