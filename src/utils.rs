@@ -106,7 +106,7 @@ pub fn hashtags_to_json_array(hashtags: &[Hashtag]) -> Result<String, &'static s
 ///           "icon": "bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa",
 ///           "upvotes": {},
 ///           "comments": {},
-///           "tags": "[[\"firstkudos\",\"awesomework\"]]",
+///           "tags": "[\"firstkudos\",\"awesomework\"]",
 ///         }
 ///       }
 ///     },
