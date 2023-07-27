@@ -4,7 +4,8 @@ use crate::types::KudosId;
 use crate::{consts::*, EscapedMessage, Hashtag, KudosKind};
 use crate::{utils::*, WrappedCid};
 use crate::{Contract, ContractExt};
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, PromiseOrValue};
+use near_sdk::json_types::U128;
+use near_sdk::{env, near_bindgen, AccountId, Promise, PromiseError, PromiseOrValue};
 
 #[near_bindgen]
 impl Contract {
@@ -12,7 +13,7 @@ impl Contract {
     pub fn save_kudos(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         external_db_id: AccountId,
         receiver_id: AccountId,
         kind: KudosKind,
@@ -21,6 +22,8 @@ impl Contract {
         hashtags: Option<Vec<Hashtag>>,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
     ) -> Promise {
+        let attached_deposit = attached_deposit.0;
+
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -56,7 +59,7 @@ impl Contract {
                             .with_static_gas(KUDOS_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS)
                             .on_kudos_saved(
                                 predecessor_account_id.clone(),
-                                attached_deposit,
+                                attached_deposit.into(),
                                 kudos_id,
                             ),
                     ))
@@ -77,10 +80,12 @@ impl Contract {
     pub fn on_kudos_saved(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<(), PromiseError>,
     ) -> PromiseOrValue<KudosId> {
+        let attached_deposit = attached_deposit.0;
+
         match callback_result {
             Ok(_) => PromiseOrValue::Value(kudos_id),
             Err(e) => {

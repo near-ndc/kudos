@@ -56,7 +56,7 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     let kudos_kind_path = build_kudos_kind_path(&contract_id, &receiver_id, &kudos_id);
     kudos_contract.on_kudos_upvotes_acquired(
         sender_id.clone(),
-        EXCHANGE_KUDOS_COST,
+        EXCHANGE_KUDOS_COST.into(),
         kudos_id.clone(),
         kudos_upvotes_path.clone(),
         kudos_kind_path.clone(),
@@ -87,7 +87,7 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     let initial_balance = env::account_balance();
     kudos_contract.on_kudos_upvotes_acquired(
         sender_id.clone(),
-        EXCHANGE_KUDOS_COST,
+        EXCHANGE_KUDOS_COST.into(),
         kudos_id.clone(),
         kudos_upvotes_path.clone(),
         kudos_kind_path.clone(),
@@ -110,7 +110,7 @@ fn test_required_deposit_to_exchange_kudos() -> anyhow::Result<()> {
     let initial_balance = env::account_balance();
     kudos_contract.on_kudos_upvotes_acquired(
         sender_id,
-        EXCHANGE_KUDOS_COST,
+        EXCHANGE_KUDOS_COST.into(),
         kudos_id,
         kudos_upvotes_path,
         kudos_kind_path,
@@ -183,7 +183,7 @@ fn test_on_pok_sbt_mint() {
         assert_eq!(
             promise_or_value_result_into_result(kudos_contract.on_pok_sbt_mint(
                 sender_id.clone(),
-                EXCHANGE_KUDOS_COST,
+                EXCHANGE_KUDOS_COST.into(),
                 kudos_id.clone(),
                 test_case.input
             )),

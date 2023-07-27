@@ -53,7 +53,7 @@ impl Contract {
                     .with_static_gas(gas_remaining)
                     .acquire_number_of_upvotes(
                         predecessor_account_id,
-                        attached_deposit,
+                        attached_deposit.into(),
                         external_db_id,
                         kudos_id,
                     ),
@@ -120,7 +120,7 @@ impl Contract {
                     .with_static_gas(gas_remaining)
                     .acquire_kudos_info(
                         predecessor_account_id,
-                        attached_deposit,
+                        attached_deposit.into(),
                         external_db_id,
                         receiver_id,
                         kudos_id,
@@ -178,7 +178,7 @@ impl Contract {
                     .with_static_gas(gas_remaining)
                     .acquire_kudos_sender(
                         predecessor_account_id,
-                        attached_deposit,
+                        attached_deposit.into(),
                         external_db_id,
                         receiver_id,
                         kudos_id,
@@ -244,7 +244,7 @@ impl Contract {
                     .with_static_gas(gas_remaining)
                     .save_kudos(
                         predecessor_account_id,
-                        attached_deposit,
+                        attached_deposit.into(),
                         external_db_id,
                         receiver_id,
                         kind,

@@ -4,9 +4,10 @@ use crate::registry::TokenId;
 use crate::types::KudosId;
 use crate::utils::*;
 use crate::{Contract, ContractExt};
+use near_sdk::json_types::U128;
 use near_sdk::json_types::U64;
 use near_sdk::serde_json::Value;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, PromiseOrValue};
+use near_sdk::{env, near_bindgen, AccountId, Promise, PromiseError, PromiseOrValue};
 
 #[near_bindgen]
 impl Contract {
@@ -14,12 +15,14 @@ impl Contract {
     pub fn acquire_kudos_sender(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         external_db_id: AccountId,
         receiver_id: AccountId,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
     ) -> Promise {
+        let attached_deposit = attached_deposit.0;
+
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -55,7 +58,7 @@ impl Contract {
                             .with_static_gas(get_kudos_by_id_callback_gas)
                             .on_kudos_sender_acquired(
                                 predecessor_account_id.clone(),
-                                attached_deposit,
+                                attached_deposit.into(),
                                 external_db_id,
                                 get_kudos_by_id_req,
                                 upvote_kudos_req,
@@ -78,12 +81,14 @@ impl Contract {
     pub fn on_kudos_sender_acquired(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         upvote_kudos_req: Value,
         #[callback_result] callback_result: Result<Value, PromiseError>,
     ) -> Promise {
+        let attached_deposit = attached_deposit.0;
+
         let Err(e) = callback_result
             .map_err(|e| format!("SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"))
             .and_then(|kudos_by_id_res| {
@@ -109,7 +114,7 @@ impl Contract {
                             .with_static_gas(KUDOS_UPVOTE_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS)
                             .on_kudos_upvote_saved(
                                 predecessor_account_id,
-                                attached_deposit,
+                                attached_deposit.into(),
                             ),
                     );
             };
@@ -128,9 +133,11 @@ impl Contract {
     pub fn on_kudos_upvote_saved(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         #[callback_result] callback_result: Result<(), PromiseError>,
     ) -> PromiseOrValue<U64> {
+        let attached_deposit = attached_deposit.0;
+
         match callback_result {
             Ok(_) => PromiseOrValue::Value(env::block_timestamp_ms().into()),
             Err(e) => {

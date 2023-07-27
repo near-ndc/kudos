@@ -4,8 +4,9 @@ use crate::types::{CommentId, KudosId};
 use crate::utils::*;
 use crate::{consts::*, EncodedCommentary};
 use crate::{Contract, ContractExt};
+use near_sdk::json_types::U128;
 use near_sdk::serde_json::Value;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, PromiseOrValue};
+use near_sdk::{env, near_bindgen, AccountId, Promise, PromiseError, PromiseOrValue};
 
 #[near_bindgen]
 impl Contract {
@@ -13,13 +14,15 @@ impl Contract {
     pub fn acquire_kudos_info(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         external_db_id: AccountId,
         receiver_id: AccountId,
         kudos_id: KudosId,
         comment: EncodedCommentary,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
     ) -> Promise {
+        let attached_deposit = attached_deposit.0;
+
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -60,7 +63,7 @@ impl Contract {
                             .with_static_gas(get_kudos_by_id_callback_gas)
                             .on_kudos_info_acquired(
                                 predecessor_account_id.clone(),
-                                attached_deposit,
+                                attached_deposit.into(),
                                 external_db_id,
                                 get_kudos_by_id_req,
                                 leave_comment_req,
@@ -84,13 +87,15 @@ impl Contract {
     pub fn on_kudos_info_acquired(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         leave_comment_req: Value,
         comment_id: CommentId,
         #[callback_result] callback_result: Result<Value, PromiseError>,
     ) -> Promise {
+        let attached_deposit = attached_deposit.0;
+
         let Err(e) = callback_result
             .map_err(|e| {
                 format!(
@@ -115,7 +120,7 @@ impl Contract {
                             .with_static_gas(KUDOS_COMMENT_SAVED_CALLBACK_GAS + FAILURE_CALLBACK_GAS)
                             .on_commentary_saved(
                                 predecessor_account_id,
-                                attached_deposit,
+                                attached_deposit.into(),
                                 comment_id,
                             ),
                     );
@@ -135,10 +140,12 @@ impl Contract {
     pub fn on_commentary_saved(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         comment_id: CommentId,
         #[callback_result] callback_result: Result<(), PromiseError>,
     ) -> PromiseOrValue<CommentId> {
+        let attached_deposit = attached_deposit.0;
+
         match callback_result {
             Ok(_) => PromiseOrValue::Value(comment_id),
             Err(e) => {

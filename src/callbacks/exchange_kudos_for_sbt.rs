@@ -6,8 +6,9 @@ use crate::settings::Settings;
 use crate::types::KudosId;
 use crate::utils::*;
 use crate::{Contract, ContractExt};
+use near_sdk::json_types::U128;
 use near_sdk::serde_json::Value;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PromiseError, PromiseOrValue};
+use near_sdk::{env, near_bindgen, AccountId, Promise, PromiseError, PromiseOrValue};
 
 #[near_bindgen]
 impl Contract {
@@ -15,11 +16,13 @@ impl Contract {
     pub fn acquire_number_of_upvotes(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         external_db_id: AccountId,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
     ) -> Promise {
+        let attached_deposit = attached_deposit.0;
+
         let result = callback_result
             .map_err(|e| format!("IAHRegistry::is_human() call failure: {e:?}"))
             .and_then(|tokens| {
@@ -50,7 +53,7 @@ impl Contract {
                             .with_static_gas(upvotes_acquired_callback_gas)
                             .on_kudos_upvotes_acquired(
                                 predecessor_account_id.clone(),
-                                attached_deposit,
+                                attached_deposit.into(),
                                 kudos_id,
                                 kudos_upvotes_path,
                                 kudos_kind_path,
@@ -73,12 +76,13 @@ impl Contract {
     pub fn on_kudos_upvotes_acquired(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         kudos_id: KudosId,
         kudos_upvotes_path: String,
         kudos_kind_path: String,
         #[callback_result] kudos_result: Result<Value, PromiseError>,
     ) -> Promise {
+        let attached_deposit = attached_deposit.0;
         let settings = Settings::from(&self.settings);
 
         match parse_kudos_and_verify_if_allowed_to_exchange(
@@ -105,7 +109,11 @@ impl Contract {
                             .with_static_gas(
                                 PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS + FAILURE_CALLBACK_GAS,
                             )
-                            .on_pok_sbt_mint(predecessor_account_id, attached_deposit, kudos_id),
+                            .on_pok_sbt_mint(
+                                predecessor_account_id,
+                                attached_deposit.into(),
+                                kudos_id,
+                            ),
                     )
             }
             Err(e) => {
@@ -126,10 +134,12 @@ impl Contract {
     pub fn on_pok_sbt_mint(
         &mut self,
         predecessor_account_id: AccountId,
-        attached_deposit: Balance,
+        attached_deposit: U128,
         kudos_id: KudosId,
         #[callback_result] callback_result: Result<Vec<u64>, PromiseError>,
     ) -> Result<PromiseOrValue<Vec<u64>>, &'static str> {
+        let attached_deposit = attached_deposit.0;
+
         match callback_result {
             Ok(minted_tokens_ids) if minted_tokens_ids.is_empty() => {
                 // If IAHRegistry contract succeeds but returns an empty tokens list,
