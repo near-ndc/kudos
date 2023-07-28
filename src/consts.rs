@@ -46,9 +46,10 @@ pub const SOCIAL_DB_GRANT_WRITE_PERMISSION_COST: Balance = 3_100_000_000_000_000
 ///
 /// The computed deposit amount is based on a case when user with maximum account name length (64 characters)
 /// grants kudos with maximum provided commentary text length (1000 escaped ascii characters),
-/// icon CID for ipfs and maximum number of allowed hashtags (10) with a maximum hashtag text length (32 alphanumeric ascii characters)
-/// to a user with maximum account name length (64 characters). The exact value of this computation is 0.0961 Ⓝ
-/// and it is rounded to 0.1 Ⓝ. This value should be recomputed if the above restrications will be changed.
+/// icon CID for ipfs and maximum number of allowed hashtags (10) with a hashtag of maximum
+/// text length (limited to 32 characters, and allows to use only alphanumeric ascii characters, underscores and gyphens)
+/// to a user with maximum account name length (64 characters). The exact value of this computation is 0.0961 Ⓝ and
+/// it is rounded to 0.1 Ⓝ. This value should be recomputed if the above restrications will be changed.
 pub const GIVE_KUDOS_COST: Balance = 100_000_000_000_000_000_000_000; // 0.1 Ⓝ (0.09802)
 
 /// Deposit required to leave a commentary message for kudos

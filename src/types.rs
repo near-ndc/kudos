@@ -127,21 +127,23 @@ impl Serialize for Commentary<'_> {
     }
 }
 
-/// This type represents a [`String`] which contains ascii alphanumeric characters only
+/// This type represents a [`String`] for which only ascii alphanumeric characters, underscores and gyphens are allowed to use
 #[derive(Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Clone, Debug))]
 #[serde(crate = "near_sdk::serde")]
 pub struct Hashtag(String);
 
 impl Hashtag {
-    /// Creates [`Hashtag`] from ascii alphanumeric ref string and checks the maximum length
+    /// Create [`Hashtag`] from ascii ref string, verify maximum length and check for allowed characters
     pub fn new(hashtag: &str, max_lenth: usize) -> Result<Self, &'static str> {
         if hashtag.len() > max_lenth {
             return Err("Hashtag max text length exceeded");
         }
 
-        if hashtag.contains(|c: char| !c.is_ascii_alphanumeric()) {
-            return Err("Non-alphanumeric characters are not allowed in hashtag");
+        if hashtag.contains(|c: char| !c.is_ascii_alphanumeric() && !matches!(c, '_' | '-')) {
+            return Err(
+                "Only alphanumeric characters, underscores and gyphens are allowed for hashtag",
+            );
         }
 
         Ok(Self(hashtag.to_owned()))
@@ -315,7 +317,8 @@ mod tests {
     fn test_hashtag_from_str() {
         assert!(Hashtag::new("validhashtag", 32).is_ok());
         assert!(Hashtag::new("val1dhAshta9", 32).is_ok());
-        assert!(Hashtag::new("invalid_hashtag", 32).is_err());
+        assert!(Hashtag::new("va-li-d_hashtag", 32).is_ok());
+        assert!(Hashtag::new("invalid+hashtag", 32).is_err());
         assert!(Hashtag::new("invalidha$ht@g", 32).is_err());
         assert!(Hashtag::new("toolonghashtag", 8).is_err());
     }

@@ -188,7 +188,7 @@ impl Contract {
 
     /// Allows caller to give kudos for a user by [`AccountId`].
     /// Caller should have a valid i-am-human SBT and can't give kudos to himself.
-    /// Hashtags is an array of [`String`] restirected to alphanumeric characters only.
+    /// Hashtags is an array of [`String`] for which only alphanumeric characters, underscores and gyphens are allowed to use.
     #[payable]
     #[handle_result]
     pub fn give_kudos(

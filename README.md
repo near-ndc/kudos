@@ -37,7 +37,7 @@ give_kudos(receiver_id, message, icon_cid, hashtags): kudos id
 - receiver_id: user's NEAR account id who should be granted with kudos
 - message: followed commentary message text to the kudos granted. By default limits to 1000 characters
 - icon_cid: optional valid CID for icon (image) at ipfs
-- hashtags: optional array of user-specified tags (restricted to 32 alphanumeric characters). By default maximum allowed number of hashtags is 10
+- hashtags: optional array of user-specified tags (limited to 32 characters by default, and allows to use only alphanumeric characters, underscores and gyphens). By default maximum allowed number of hashtags is 10
 ```
 
 #### Output

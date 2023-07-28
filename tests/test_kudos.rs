@@ -119,7 +119,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     .is_ok());
 
     // User1 gives kudos to User2
-    let hashtags = (0..3).map(|n| format!("ht{n}")).collect::<Vec<_>>();
+    let hashtags = (0..3).map(|n| format!("ht_{n}")).collect::<Vec<_>>();
     let kudos_message = "test\",\n\"a\":{\"b\":\"test2\"},\"c\":\"msg";
     let kudos_id = give_kudos(
         kudos_contract.id(),
@@ -394,7 +394,7 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
         user1_account.id(),
         "blablabla",
         None,
-        vec!["hta", "htb"],
+        vec!["ht-a", "ht_b"],
     )
     .await?;
 
