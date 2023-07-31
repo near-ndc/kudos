@@ -104,7 +104,7 @@ pub const PROOF_OF_KUDOS_SBT_MINT_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 /// Gas required for a [`on_pok_sbt_mint`](kudos_contract::callbacks::exchange_kudos_for_sbt::ContractExt::on_pok_sbt_mint) callback
 pub const PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
 /// Gas reserved to a public method [`exchange_kudos_for_sbt`](kudos_contract::public::Contract::exchange_kudos_for_sbt)
-pub const EXCHANGE_KUDOS_FOR_SBT_RESERVED_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
+pub const EXCHANGE_KUDOS_FOR_SBT_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 
 /// Gas required minimum for `get` and `set` methods of NEAR social db smart contract.
 ///

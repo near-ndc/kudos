@@ -169,7 +169,7 @@ User must be human verified (should have minted and valid i-am-human SBT)
 Caller should be granted with kudos by provided unique identifier
 Caller can exchange his upvoted kudos only once
 Kudos should have minimum required number of upvotes. By default is 3 upvotes
-Minimum gas required: 77 TGas (300 TGas recommended)
+Minimum gas required: 82 TGas (300 TGas recommended)
 Deposit required: 0.008 Ⓝ
 
 #### Interface
