@@ -73,7 +73,7 @@ pub const FAILURE_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
 /// Gas required for a [`save_kudos`](kudos_contract::callbacks::give_kudos::ContractExt::save_kudos) callback
 pub const SAVE_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 /// Gas required for a [`on_kudos_saved`](kudos_contract::callbacks::give_kudos::ContractExt::on_kudos_saved) callback
-pub const KUDOS_SAVED_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
+pub const KUDOS_SAVED_CALLBACK_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 /// Gas reserved to a public method [`give_kudos`](kudos_contract::public::Contract::give_kudos)
 pub const GIVE_KUDOS_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 
@@ -91,7 +91,7 @@ pub const ACQUIRE_KUDOS_INFO_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 /// Gas required for a [`on_kudos_info_acquired`](kudos_contract::callbacks::leave_comment::ContractExt::on_kudos_info_acquired) callback
 pub const KUDOS_INFO_ACQUIRED_CALLBACK_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 /// Gas required for a [`on_commentary_saved`](kudos_contract::callbacks::leave_comment::ContractExt::on_commentary_saved) callback
-pub const KUDOS_COMMENT_SAVED_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
+pub const KUDOS_COMMENT_SAVED_CALLBACK_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 /// Gas reserved to a public method [`leave_comment`](kudos_contract::public::Contract::leave_comment)
 pub const LEAVE_COMMENT_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 
@@ -102,7 +102,7 @@ pub const KUDOS_UPVOTES_ACQUIRED_CALLBACK_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 /// Gas required for a [`sbt_mint`](kudos_contract::registry::ExtSbtRegistry::sbt_mint) cross contract call
 pub const PROOF_OF_KUDOS_SBT_MINT_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 /// Gas required for a [`on_pok_sbt_mint`](kudos_contract::callbacks::exchange_kudos_for_sbt::ContractExt::on_pok_sbt_mint) callback
-pub const PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS: Gas = Gas(5 * Gas::ONE_TERA.0);
+pub const PROOF_OF_KUDOS_SBT_MINT_CALLBACK_GAS: Gas = Gas(10 * Gas::ONE_TERA.0);
 /// Gas reserved to a public method [`exchange_kudos_for_sbt`](kudos_contract::public::Contract::exchange_kudos_for_sbt)
 pub const EXCHANGE_KUDOS_FOR_SBT_RESERVED_GAS: Gas = Gas(15 * Gas::ONE_TERA.0);
 

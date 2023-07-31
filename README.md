@@ -26,7 +26,7 @@ Allows caller to grant kudos to a receiver NEAR account
 #### Requirements
 
 User must be human verified (should have minted and valid i-am-human SBT)
-Minimum gas required: 62 TGas (300 TGas recommended)
+Minimum gas required: 67 TGas (300 TGas recommended)
 Deposit required: 0.1 Ⓝ
 
 #### Interface
@@ -125,7 +125,7 @@ Allows caller to leave a commentary message to kudos by unique id granted to a r
 
 User must be human verified (should have minted and valid i-am-human SBT)
 Caller can't be a receiver NEAR account (User can't comment his kudos)
-Minimum gas required: 87 TGas (300 TGas recommended)
+Minimum gas required: 92 TGas (300 TGas recommended)
 Deposit required: 0.017 Ⓝ
 
 #### Interface
@@ -169,7 +169,7 @@ User must be human verified (should have minted and valid i-am-human SBT)
 Caller should be granted with kudos by provided unique identifier
 Caller can exchange his upvoted kudos only once
 Kudos should have minimum required number of upvotes. By default is 3 upvotes
-Minimum gas required: 82 TGas (300 TGas recommended)
+Minimum gas required: 87 TGas (300 TGas recommended)
 Deposit required: 0.008 Ⓝ
 
 #### Interface
