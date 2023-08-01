@@ -226,6 +226,17 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     )
     .await?;
 
+    // User3 leaves a reply to a comment from User2
+    let comment3_id = leave_comment(
+        kudos_contract.id(),
+        &user3_account,
+        user2_account.id(),
+        &kudos_id,
+        Some(comment2_id.clone()),
+        "you are the best",
+    )
+    .await?;
+
     // User3 fails to leave a reply to an invalid comment id
     let err = leave_comment(
         kudos_contract.id(),
@@ -284,6 +295,19 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     );
     assert_eq!(comment.message.as_str(), "wow");
     assert_eq!(comment.parent_comment_id, Some(&comment1_id));
+
+    // verify a reply comment
+    let comment = Commentary::from(comments.get(&comment3_id).unwrap());
+    assert_eq!(
+        comment.sender_id.as_str(),
+        user3_account
+            .id()
+            .parse::<near_sdk::AccountId>()
+            .unwrap()
+            .as_str()
+    );
+    assert_eq!(comment.message.as_str(), "you are the best");
+    assert_eq!(comment.parent_comment_id, Some(&comment2_id));
 
     Ok(())
 }
