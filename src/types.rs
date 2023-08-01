@@ -140,14 +140,13 @@ impl Serialize for Commentary<'_> {
         S: near_sdk::serde::Serializer,
     {
         let encoded = near_sdk::base64::encode(
-            serde_json::to_value(CommentaryRaw {
+            serde_json::to_string(&CommentaryRaw {
                 message: self.message,
                 sender_id: self.sender_id,
                 timestamp: self.timestamp,
                 parent_comment_id: self.parent_comment_id,
             })
-            .map_err(near_sdk::serde::ser::Error::custom)?
-            .to_string(),
+            .map_err(near_sdk::serde::ser::Error::custom)?,
         );
 
         serializer.serialize_str(&encoded)
@@ -355,7 +354,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             comment.as_str(),
-            "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicCI6IjEiLCJzIjoidXNlci5uZWFyIiwidCI6IjEyMzQ1Njc4OTAifQ=="
+            "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicyI6InVzZXIubmVhciIsInQiOiIxMjM0NTY3ODkwIiwicCI6IjEifQ=="
         );
     }
 
