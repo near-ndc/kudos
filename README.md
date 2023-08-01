@@ -124,17 +124,18 @@ Allows caller to leave a commentary message to kudos by unique id granted to a r
 #### Requirements
 
 User must be human verified (should have minted and valid i-am-human SBT)
-Caller can't be a receiver NEAR account (User can't comment his kudos)
+User can't leave a comment for his kudos, but it can reply to other comments
 Minimum gas required: 92 TGas (300 TGas recommended)
 Deposit required: 0.017 Ⓝ
 
 #### Interface
 
 ```
-leave_comment(receiver_id, kudos_id, message): commentary id
+leave_comment(receiver_id, kudos_id, parent_comment_id, message): commentary id
 
 - receiver_id: user's NEAR account id whos unique kudos should be upvoted
 - kudos_id: unique kudos identified granted to a receiver NEAR account
+- parent_comment_id: optional parent commentary id which this new comment is a reply for. By default, if not specified, every commentary relates to kudos id
 - message: followed commentary message text to the kudos. By default limits to 1000 characters
 ```
 

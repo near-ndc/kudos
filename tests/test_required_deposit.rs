@@ -145,16 +145,17 @@ async fn test_required_deposit() -> anyhow::Result<()> {
         display_deposit_in_near(consumed)
     );
 
-    // Leave comment
+    // Leave comment (no parent)
     let Some(balance_1) = storage_balance_of(&near_social_id, kudos_contract.as_account()).await? else {
         anyhow::bail!("Kudos contract wasn't properly initialized at SocialDB!")
     };
 
-    let _ = leave_comment(
+    let comment_id = leave_comment(
         kudos_contract.id(),
         &test1_account,
         test2_account.id(),
         &kudos_id,
+        None,
         &kudos_text,
     )
     .await?;
@@ -165,6 +166,34 @@ async fn test_required_deposit() -> anyhow::Result<()> {
 
     let consumed =
         (balance_2.total.0 - balance_2.available.0) - (balance_1.total.0 - balance_1.available.0);
+    assert!(
+        consumed <= LEAVE_COMMENT_COST,
+        "`leave_comment` call should cost at least {} Ⓝ",
+        display_deposit_in_near(consumed)
+    );
+
+    // Leave comment (with parent)
+    let Some(balance_1) = storage_balance_of(&near_social_id, kudos_contract.as_account()).await? else {
+        anyhow::bail!("Kudos contract wasn't properly initialized at SocialDB!")
+    };
+
+    let _ = leave_comment(
+        kudos_contract.id(),
+        &test1_account,
+        test2_account.id(),
+        &kudos_id,
+        Some(comment_id),
+        &kudos_text,
+    )
+    .await?;
+
+    let Some(balance_2) = storage_balance_of(&near_social_id, kudos_contract.as_account()).await? else {
+        anyhow::bail!("Kudos contract wasn't properly initialized at SocialDB!")
+    };
+
+    let consumed =
+        (balance_2.total.0 - balance_2.available.0) - (balance_1.total.0 - balance_1.available.0);
+    println!("{}", display_deposit_in_near(consumed));
     assert!(
         consumed <= LEAVE_COMMENT_COST,
         "`leave_comment` call should cost at least {} Ⓝ",

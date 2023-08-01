@@ -1,7 +1,7 @@
 use crate::registry::{ext_sbtreg, IS_HUMAN_GAS};
 use crate::settings::Settings;
 use crate::types::{Commentary, KudosId, KudosKind, WrappedCid};
-use crate::{consts::*, EncodedCommentary, EscapedMessage};
+use crate::{consts::*, CommentId, EncodedCommentary, EscapedMessage};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
 use near_sdk::{env, near_bindgen, require, AccountId, Promise};
@@ -69,14 +69,16 @@ impl Contract {
         &mut self,
         receiver_id: AccountId,
         kudos_id: KudosId,
+        parent_comment_id: Option<CommentId>,
         message: String,
     ) -> Result<Promise, String> {
         self.assert_contract_running();
 
         let predecessor_account_id = env::predecessor_account_id();
         let sender_id = env::signer_account_id();
+        // User can't leave a comment for his kudos, but it can reply to other comments
         require!(
-            receiver_id != sender_id,
+            receiver_id != sender_id || parent_comment_id.is_some(),
             "User is not eligible to leave a comment for this kudos"
         );
 
@@ -107,6 +109,7 @@ impl Contract {
                 Settings::from(&self.settings).commentary_message_max_length as usize,
             )?,
             timestamp: env::block_timestamp_ms().into(),
+            parent_comment_id: parent_comment_id.as_ref(),
         })?;
 
         let gas_remaining =
@@ -124,6 +127,7 @@ impl Contract {
                         external_db_id,
                         receiver_id,
                         kudos_id,
+                        parent_comment_id,
                         comment,
                     ),
             ))

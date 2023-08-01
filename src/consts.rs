@@ -56,9 +56,10 @@ pub const GIVE_KUDOS_COST: Balance = 100_000_000_000_000_000_000_000; // 0.1 Ⓝ
 ///
 /// The computed deposit amount is based on a case when user with maximum account name length (64 characters)
 /// leaves a commentary message text with maximum length (1000 escaped ascii characters)
-/// to a user with maximum account name length (64 characters). The exact value of this computation is 0.01653 Ⓝ
-/// and it is rounded to 0.017 Ⓝ. This value should be recomputed if the above restrications will be changed.
-pub const LEAVE_COMMENT_COST: Balance = 17_000_000_000_000_000_000_000; // 0.017 Ⓝ (0.01653)
+/// to a user with maximum account name length (64 characters). The exact value of this computation when
+/// no parent commentary id provided is 0.01653 Ⓝ and it is rounded to 0.017 Ⓝ. This value should be recomputed
+/// if the above restrications will be changed.
+pub const LEAVE_COMMENT_COST: Balance = 17_000_000_000_000_000_000_000; // 0.017 Ⓝ (0.01653 when no parent commentary id)
 
 /// Deposit required to upvote kudos
 ///

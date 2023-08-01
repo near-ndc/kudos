@@ -91,8 +91,8 @@ impl Contract {
 
         let Err(e) = callback_result
             .map_err(|e| format!("SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"))
-            .and_then(|kudos_by_id_res| {
-                match extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res) {
+            .and_then(|mut kudos_by_id_res| {
+                match extract_kudos_id_sender_from_response(&get_kudos_by_id_req, &mut kudos_by_id_res) {
                     Some(sender_id) if sender_id == env::signer_account_id() => {
                         Err("User is not eligible to upvote this kudos".to_owned())
                     }

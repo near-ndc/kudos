@@ -270,6 +270,19 @@ pub fn build_get_kudos_by_id_request(
     format!("{root_id}/kudos/{receiver_id}/{kudos_id}/*")
 }
 
+/// Return [`String`] path to a stored kudos base64-encoded comment with unique [`KudosId`] and [`CommentId`]
+/// for a valid [`AccountId`] used to query from NEAR social db.
+///
+/// Example of query: "kudos.near/kudos/alex.near/1/comments/2"
+pub fn build_get_kudos_comment_by_id_request(
+    root_id: &AccountId,
+    receiver_id: &AccountId,
+    kudos_id: &KudosId,
+    comment_id: &CommentId,
+) -> String {
+    format!("{root_id}/kudos/{receiver_id}/{kudos_id}/comments/{comment_id}")
+}
+
 /// Return [`String`] path to a stored upvotes information JSON with unique [`KudosId`] for a valid [`AccountId`]
 /// used to query from NEAR social db.
 ///
@@ -306,10 +319,20 @@ pub fn build_pok_sbt_metadata(issued_at: u64, expires_at: u64) -> TokenMetadata 
     }
 }
 
-/// Extract sernder [`AccountId`] from stored kudos JSON acquired from NEAR social db
-pub fn extract_kudos_id_sender_from_response(req: &str, mut res: Value) -> Option<AccountId> {
-    remove_key_from_json(&mut res, &req.replace('*', "sender_id"))
+/// Extract sender [`AccountId`] from stored kudos JSON acquired from NEAR social db
+pub fn extract_kudos_id_sender_from_response(req: &str, res: &mut Value) -> Option<AccountId> {
+    remove_key_from_json(res, &req.replace('*', "sender_id"))
         .and_then(|val| serde_json::from_value::<AccountId>(val).ok())
+}
+
+/// Extract kudos base64-encoded comment [`EncodedCommentary`] by [`CommentId`] from stored kudos JSON acquired from NEAR social db
+pub fn extract_kudos_encoded_comment_by_id_from_response(
+    req: &str,
+    comment_id: &CommentId,
+    res: &mut Value,
+) -> Option<EncodedCommentary> {
+    remove_key_from_json(res, &req.replace('*', &format!("comments/{comment_id}")))
+        .and_then(|val| serde_json::from_value::<EncodedCommentary>(val).ok())
 }
 
 /// Remove and return (if removed) [`serde_json::Value`] by key name [`str`] from JSON [`serde_json::Value`]
@@ -552,6 +575,7 @@ mod tests {
                     sender_id: &sender_id,
                     message: &EscapedMessage::new("some commentary text", 1000).unwrap(),
                     timestamp: U64(1234567890),
+                    parent_comment_id: None,
                 })
                 .unwrap(),
             )
@@ -566,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_verify_kudos_id_request() {
+    fn test_build_get_kudos_by_id_request() {
         let root_id = AccountId::new_unchecked("kudos.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
         let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
@@ -577,12 +601,30 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_kudos_id_response() {
+    fn test_build_get_kudos_comment_by_id_request() {
+        let root_id = AccountId::new_unchecked("kudos.near".to_owned());
+        let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
+        let mut id = IncrementalUniqueId::default();
+        let next_kudos_id = KudosId::from(id.inc());
+        let next_comment_id = CommentId::from(id.inc());
+        assert_eq!(
+            &super::build_get_kudos_comment_by_id_request(
+                &root_id,
+                &receiver_id,
+                &next_kudos_id,
+                &next_comment_id
+            ),
+            "kudos.near/kudos/test2.near/1/comments/2"
+        );
+    }
+
+    #[test]
+    fn test_extract_kudos_id_sender_from_response() {
         // valid kudos response
         assert_eq!(
             super::extract_kudos_id_sender_from_response(
                 "test.near/kudos/user1.near/1/*",
-                json!({
+                &mut json!({
                     "test.near": {
                       "kudos": {
                         "user1.near": {
@@ -599,7 +641,7 @@ mod tests {
         // invalid kudos response
         assert!(super::extract_kudos_id_sender_from_response(
             "test.near/kudos/user1.near/1/*",
-            json!({
+            &mut json!({
                 "test.near": {
                   "kudos": {
                     "user1.near": {
@@ -613,7 +655,7 @@ mod tests {
         // different kudos root id
         assert!(super::extract_kudos_id_sender_from_response(
             "test.near/kudos/user1.near/1/*",
-            json!({
+            &mut json!({
                 "test1.near": {
                   "kudos": {
                     "user1.near": {
@@ -629,7 +671,68 @@ mod tests {
         // no response
         assert!(super::extract_kudos_id_sender_from_response(
             "test.near/kudos/user1.near/1/*",
-            json!({})
+            &mut json!({})
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn test_extract_kudos_encoded_comment_by_id_from_response() {
+        // valid kudos base64-encoded comment response
+        assert_eq!(
+            super::extract_kudos_encoded_comment_by_id_from_response(
+                "test.near/kudos/user1.near/1/*",
+                &CommentId::new_unchecked(2),
+                &mut json!({
+                    "test.near": {
+                      "kudos": {
+                        "user1.near": {
+                          "1": {
+                            "comments": {
+                              "2": "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicCI6IjEiLCJzIjoidXNlci5uZWFyIiwidCI6IjEyMzQ1Njc4OTAifQ"
+                            }
+                          }
+                        }
+                      }
+                    }
+                })
+            ),
+            Some(EncodedCommentary::new_unchecked("eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicCI6IjEiLCJzIjoidXNlci5uZWFyIiwidCI6IjEyMzQ1Njc4OTAifQ".to_owned()))
+        );
+        // invalid kudos base64-encoded comment response
+        assert!(super::extract_kudos_encoded_comment_by_id_from_response(
+            "test.near/kudos/user1.near/1/*",
+            &CommentId::new_unchecked(2),
+            &mut json!({
+                "test.near": {
+                  "kudos": {
+                    "user1.near": {
+                      "1": {
+                        "comments": {}
+                      }
+                    }
+                  }
+                }
+            })
+        )
+        .is_none());
+        // different parent commentary id
+        assert!(super::extract_kudos_encoded_comment_by_id_from_response(
+            "test.near/kudos/user1.near/1/*",
+            &CommentId::new_unchecked(3),
+            &mut json!({
+                "test.near": {
+                  "kudos": {
+                    "user1.near": {
+                      "1": {
+                        "comments": {
+                          "2": "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicCI6IjEiLCJzIjoidXNlci5uZWFyIiwidCI6IjEyMzQ1Njc4OTAifQ"
+                        }
+                      }
+                    }
+                  }
+                }
+            })
         )
         .is_none());
     }

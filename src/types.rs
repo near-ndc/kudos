@@ -2,10 +2,7 @@ use cid::Cid;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{self, de, Deserialize, Deserializer, Serialize, Serializer};
-use near_sdk::{
-    serde_json::{self, json},
-    AccountId, BorshStorageKey,
-};
+use near_sdk::{serde_json, AccountId, BorshStorageKey};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
@@ -68,6 +65,14 @@ impl Display for KudosId {
 #[serde(crate = "near_sdk::serde")]
 pub struct CommentId(U64);
 
+impl CommentId {
+    /// Creates [`CommentId`] from identifier without guarantee for validness & uniqueness
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_unchecked(id: u64) -> Self {
+        Self(id.into())
+    }
+}
+
 impl Hash for CommentId {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0 .0.hash(state);
@@ -107,6 +112,26 @@ pub struct Commentary<'a> {
     pub sender_id: &'a AccountId,
     /// The timestamp in milliseconds when commentary message were prepared
     pub timestamp: U64,
+    /// Parent commentary id which were replied
+    pub parent_comment_id: Option<&'a CommentId>,
+}
+
+/// Raw commentary message data struct which serializes to [`Value`](near_sdk::serde_json::Value)
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct CommentaryRaw<'a> {
+    /// A message with escaped characters to guarantee safety of stringification
+    #[serde(rename = "m")]
+    pub message: &'a EscapedMessage,
+    /// A valid [`AccountId`] of a message sender
+    #[serde(rename = "s")]
+    pub sender_id: &'a AccountId,
+    /// The timestamp in milliseconds when commentary message were prepared
+    #[serde(rename = "t")]
+    pub timestamp: U64,
+    /// Parent commentary id which were replied
+    #[serde(rename = "p", skip_serializing_if = "Option::is_none")]
+    pub parent_comment_id: Option<&'a CommentId>,
 }
 
 impl Serialize for Commentary<'_> {
@@ -115,11 +140,13 @@ impl Serialize for Commentary<'_> {
         S: near_sdk::serde::Serializer,
     {
         let encoded = near_sdk::base64::encode(
-            json!({
-                "m": self.message.as_str(),
-                "s": self.sender_id,
-                "t": self.timestamp
+            serde_json::to_value(CommentaryRaw {
+                message: self.message,
+                sender_id: self.sender_id,
+                timestamp: self.timestamp,
+                parent_comment_id: self.parent_comment_id,
             })
+            .map_err(near_sdk::serde::ser::Error::custom)?
             .to_string(),
         );
 
@@ -201,6 +228,12 @@ pub struct EncodedCommentary(String);
 impl EncodedCommentary {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    /// Creates [`EncodedCommentary`] from [`String`] without verification if it can be deserialized
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_unchecked(encoded: String) -> Self {
+        Self(encoded)
     }
 }
 
@@ -294,7 +327,7 @@ impl Display for KudosKind {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Commentary, EncodedCommentary, EscapedMessage, Hashtag, WrappedCid};
+    use crate::{CommentId, Commentary, EncodedCommentary, EscapedMessage, Hashtag, WrappedCid};
     use assert_matches::assert_matches;
     use near_sdk::json_types::U64;
     use near_sdk::AccountId;
@@ -305,11 +338,24 @@ mod tests {
             sender_id: &AccountId::new_unchecked("user.near".to_owned()),
             message: &EscapedMessage::new("commentary test", 1000).unwrap(),
             timestamp: U64(1234567890),
+            parent_comment_id: None,
         })
         .unwrap();
         assert_eq!(
             comment.as_str(),
             "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicyI6InVzZXIubmVhciIsInQiOiIxMjM0NTY3ODkwIn0="
+        );
+
+        let comment = EncodedCommentary::try_from(&Commentary {
+            sender_id: &AccountId::new_unchecked("user.near".to_owned()),
+            message: &EscapedMessage::new("commentary test", 1000).unwrap(),
+            timestamp: U64(1234567890),
+            parent_comment_id: Some(&CommentId::new_unchecked(1u64)),
+        })
+        .unwrap();
+        assert_eq!(
+            comment.as_str(),
+            "eyJtIjoiY29tbWVudGFyeSB0ZXN0IiwicCI6IjEiLCJzIjoidXNlci5uZWFyIiwidCI6IjEyMzQ1Njc4OTAifQ=="
         );
     }
 

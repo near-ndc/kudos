@@ -1,26 +1,28 @@
-use kudos_contract::{Commentary, EscapedMessage};
+use kudos_contract::{CommentId, Commentary, EscapedMessage};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{self, Deserialize};
 use near_sdk::{serde_json, AccountId};
 
 #[derive(Debug, PartialEq)]
-pub struct CommentaryRaw {
+pub struct CommentaryOwned {
     pub message: EscapedMessage,
     pub sender_id: AccountId,
     pub timestamp: U64,
+    pub parent_comment_id: Option<CommentId>,
 }
 
-impl<'a> From<&'a CommentaryRaw> for Commentary<'a> {
-    fn from(value: &'a CommentaryRaw) -> Self {
+impl<'a> From<&'a CommentaryOwned> for Commentary<'a> {
+    fn from(value: &'a CommentaryOwned) -> Self {
         Self {
             message: &value.message,
             sender_id: &value.sender_id,
             timestamp: value.timestamp,
+            parent_comment_id: value.parent_comment_id.as_ref(),
         }
     }
 }
 
-impl<'de> Deserialize<'de> for CommentaryRaw {
+impl<'de> Deserialize<'de> for CommentaryOwned {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -50,11 +52,15 @@ impl<'de> Deserialize<'de> for CommentaryRaw {
                 let timestamp = map
                     .remove("t")
                     .and_then(|v| serde_json::from_value::<U64>(v).ok())?;
+                let parent_comment_id = map
+                    .remove("p")
+                    .and_then(|v| serde_json::from_value::<CommentId>(v).ok());
 
                 Some(Self {
                     sender_id,
                     message: EscapedMessage::new_unchecked(&message),
                     timestamp,
+                    parent_comment_id,
                 })
             })
             .ok_or_else(|| serde::de::Error::custom("Failure to deserialize commentary from json"))

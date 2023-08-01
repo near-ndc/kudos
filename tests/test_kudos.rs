@@ -210,19 +210,37 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         &user3_account,
         user2_account.id(),
         &kudos_id,
+        None,
         "amazing",
     )
     .await?;
 
-    // User3 leaves another comment to kudos given to User2 by User1
+    // User2 leaves a reply to a comment from User3
     let comment2_id = leave_comment(
+        kudos_contract.id(),
+        &user2_account,
+        user2_account.id(),
+        &kudos_id,
+        Some(comment1_id.clone()),
+        "wow",
+    )
+    .await?;
+
+    // User3 fails to leave a reply to an invalid comment id
+    let err = leave_comment(
         kudos_contract.id(),
         &user3_account,
         user2_account.id(),
         &kudos_id,
-        "wow",
+        Some(CommentId::new_unchecked(123456789)),
+        "failure",
     )
-    .await?;
+    .await
+    .unwrap_err();
+    assert_eq!(
+        &err.to_string(),
+        r#"Leave comment failure: Action #0: ExecutionError("Smart contract panicked: Unable to verify parent commentary id")"#
+    );
 
     // Verify comment left for kudos on NEAR Social-DB contract
     let mut kudos_data: near_sdk::serde_json::Value = user2_account
@@ -240,7 +258,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     )
     .unwrap();
     let comments =
-        serde_json::from_value::<HashMap<CommentId, CommentaryRaw>>(comments_json).unwrap();
+        serde_json::from_value::<HashMap<CommentId, CommentaryOwned>>(comments_json).unwrap();
 
     // verify first comment
     let comment = Commentary::from(comments.get(&comment1_id).unwrap());
@@ -254,17 +272,18 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     );
     assert_eq!(comment.message.as_str(), "amazing");
 
-    // verify second comment
+    // verify a reply comment
     let comment = Commentary::from(comments.get(&comment2_id).unwrap());
     assert_eq!(
         comment.sender_id.as_str(),
-        user3_account
+        user2_account
             .id()
             .parse::<near_sdk::AccountId>()
             .unwrap()
             .as_str()
     );
     assert_eq!(comment.message.as_str(), "wow");
+    assert_eq!(comment.parent_comment_id, Some(&comment1_id));
 
     Ok(())
 }

@@ -18,6 +18,7 @@ impl Contract {
         external_db_id: AccountId,
         receiver_id: AccountId,
         kudos_id: KudosId,
+        parent_comment_id: Option<CommentId>,
         comment: EncodedCommentary,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
     ) -> Promise {
@@ -41,6 +42,16 @@ impl Contract {
                 )?;
                 let get_kudos_by_id_req =
                     build_get_kudos_by_id_request(&root_id, &receiver_id, &kudos_id);
+                let mut get_req = vec![get_kudos_by_id_req.clone()];
+
+                if let Some(comment_id) = parent_comment_id.as_ref() {
+                    get_req.push(build_get_kudos_comment_by_id_request(
+                        &root_id,
+                        &receiver_id,
+                        &kudos_id,
+                        comment_id,
+                    ));
+                }
 
                 // Compute minimum required gas and split the remaining gas by two equal parts for
                 // NEAR Social db subsequent calls
@@ -57,7 +68,7 @@ impl Contract {
 
                 Ok(ext_db::ext(external_db_id.clone())
                     .with_static_gas(get_kudos_by_id_gas)
-                    .get(vec![get_kudos_by_id_req.clone()], None)
+                    .get(get_req, None)
                     .then(
                         Self::ext(env::current_account_id())
                             .with_static_gas(get_kudos_by_id_callback_gas)
@@ -67,6 +78,7 @@ impl Contract {
                                 external_db_id,
                                 get_kudos_by_id_req,
                                 leave_comment_req,
+                                parent_comment_id,
                                 comment_id,
                             ),
                     ))
@@ -91,6 +103,7 @@ impl Contract {
         external_db_id: AccountId,
         get_kudos_by_id_req: String,
         leave_comment_req: Value,
+        parent_comment_id: Option<CommentId>,
         comment_id: CommentId,
         #[callback_result] callback_result: Result<Value, PromiseError>,
     ) -> Promise {
@@ -102,8 +115,17 @@ impl Contract {
                     "SocialDB::get({get_kudos_by_id_req}) call failure: {e:?}"
                 )
             })
-            .and_then(|kudos_by_id_res| {
-                extract_kudos_id_sender_from_response(&get_kudos_by_id_req, kudos_by_id_res)
+            .and_then(|mut kudos_by_id_res| {
+                if let Some(comment_id) = parent_comment_id.as_ref() {
+                    // We do not verify if extracted base64-encoded commentary is valid, we assume 
+                    // that data stored in social db is not corrupted.
+                    let _ = extract_kudos_encoded_comment_by_id_from_response(&get_kudos_by_id_req, comment_id, &mut kudos_by_id_res)
+                        .ok_or_else(|| {
+                            "Unable to verify parent commentary id".to_owned()
+                        })?;
+                }
+
+                extract_kudos_id_sender_from_response(&get_kudos_by_id_req, &mut kudos_by_id_res)
                     .ok_or_else(|| {
                         "Unable to acquire a Kudos sender account id".to_owned()
                     })

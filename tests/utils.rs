@@ -200,6 +200,7 @@ pub async fn leave_comment(
     sender: &workspaces::Account,
     receiver_id: &workspaces::AccountId,
     kudos_id: &KudosId,
+    parent_comment_id: Option<CommentId>,
     message: &str,
 ) -> anyhow::Result<CommentId> {
     let res = sender
@@ -207,6 +208,7 @@ pub async fn leave_comment(
         .args_json(json!({
             "receiver_id": receiver_id,
             "kudos_id": kudos_id,
+            "parent_comment_id": parent_comment_id,
             "message": message,
         }))
         .deposit(LEAVE_COMMENT_COST)
