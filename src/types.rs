@@ -188,11 +188,27 @@ impl Hashtag {
 #[serde(crate = "near_sdk::serde")]
 pub struct EscapedMessage(String);
 
+// EscapeNonASCII
+// Reference: https://github.com/serde-rs/json/issues/907
+fn escape_string(fragment: &str) -> String {
+    let mut result = String::new();
+    for ch in fragment.chars() {
+        if ch.is_ascii() {
+            result.push_str(ch.encode_utf8(&mut [0; 4]));
+        } else {
+            for escape in ch.encode_utf16(&mut [0; 2]) {
+                result.push_str(&format!("\\u{:04x}", escape));
+            }
+        }
+    }
+    result
+}
+
 impl EscapedMessage {
     /// Creates [`EscapedMessage`] from ref string by escaping it's characters and checks the maximum length
     pub fn new(message: &str, max_lenth: usize) -> Result<Self, &'static str> {
-        let escaped_message = message.escape_default().to_string();
-
+        let mut escaped_message = escape_string(message);
+        escaped_message = escaped_message.escape_default().to_string();
         if escaped_message.len() > max_lenth {
             return Err("Message max length exceeded");
         }
