@@ -389,6 +389,7 @@ mod tests {
     fn test_escaped_message() {
         assert_matches!(EscapedMessage::new("valid message", 1000), Ok(_));
         assert_matches!(EscapedMessage::new("v@lid me$$age", 1000), Ok(_));
+        assert_matches!(EscapedMessage::new("Hello world!", 1000), Ok(s) if s.0.as_str() == "Hello world!");
         assert_matches!(EscapedMessage::new(r#""quoted_message""#, 1000), Ok(s) if s.0.as_str() == "\\\"quoted_message\\\"");
         assert_matches!(EscapedMessage::new("nice work 🚀
         Appreciated", 1000), Ok(s) if s.0.as_str() == "nice work \\\\ud83d\\\\ude80\\n        Appreciated");
