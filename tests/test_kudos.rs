@@ -13,7 +13,6 @@ use near_sdk::AccountId;
 use near_units::parse_near;
 use std::collections::{BTreeMap, HashMap};
 
-#[ignore]
 #[tokio::test]
 async fn test_give_kudos() -> anyhow::Result<()> {
     let worker_mainnet = ::workspaces::mainnet_archival().await?;
@@ -484,7 +483,6 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_mass_give_kudos() -> anyhow::Result<()> {
     let worker_mainnet = ::workspaces::mainnet_archival().await?;

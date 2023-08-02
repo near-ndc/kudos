@@ -189,7 +189,8 @@ impl Hashtag {
 pub struct EscapedMessage(String);
 
 // EscapeNonASCII
-// Reference: https://github.com/serde-rs/json/issues/907
+/// Serialize all non-ASCII characters in strings with \uXXXX escapes
+/// Reference: https://github.com/serde-rs/json/issues/907
 fn escape_string(fragment: &str) -> String {
     let mut result = String::new();
     for ch in fragment.chars() {
@@ -389,6 +390,8 @@ mod tests {
         assert_matches!(EscapedMessage::new("valid message", 1000), Ok(_));
         assert_matches!(EscapedMessage::new("v@lid me$$age", 1000), Ok(_));
         assert_matches!(EscapedMessage::new(r#""quoted_message""#, 1000), Ok(s) if s.0.as_str() == "\\\"quoted_message\\\"");
+        assert_matches!(EscapedMessage::new("nice work 🚀
+        Appreciated", 1000), Ok(s) if s.0.as_str() == "nice work \\\\ud83d\\\\ude80\\n        Appreciated");
         assert_matches!(EscapedMessage::new(&"b".repeat(32), 32), Ok(_));
         assert_matches!(EscapedMessage::new(&"a".repeat(32), 31), Err(_));
     }
