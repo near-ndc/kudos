@@ -435,7 +435,7 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
         kudos_contract.id(),
         &user2_account,
         user1_account.id(),
-        "blablabla",
+        "blablabla sdfsdfsd\nfsdfsdfs 🚀\n😎✨",
         None,
         vec!["ht-a", "ht_b"],
     )
@@ -483,7 +483,6 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_mass_give_kudos() -> anyhow::Result<()> {
     let worker_mainnet = ::workspaces::mainnet_archival().await?;

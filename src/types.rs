@@ -188,11 +188,28 @@ impl Hashtag {
 #[serde(crate = "near_sdk::serde")]
 pub struct EscapedMessage(String);
 
+// EscapeNonASCII
+/// Serialize all non-ASCII characters in strings with \uXXXX escapes
+/// Reference: https://github.com/serde-rs/json/issues/907
+fn escape_string(fragment: &str) -> String {
+    let mut result = String::new();
+    for ch in fragment.chars() {
+        if ch.is_ascii() {
+            result.push_str(ch.encode_utf8(&mut [0; 4]));
+        } else {
+            for escape in ch.encode_utf16(&mut [0; 2]) {
+                result.push_str(&format!("\\u{:04x}", escape));
+            }
+        }
+    }
+    result
+}
+
 impl EscapedMessage {
     /// Creates [`EscapedMessage`] from ref string by escaping it's characters and checks the maximum length
     pub fn new(message: &str, max_lenth: usize) -> Result<Self, &'static str> {
-        let escaped_message = message.escape_default().to_string();
-
+        let mut escaped_message = escape_string(message);
+        escaped_message = escaped_message.escape_default().to_string();
         if escaped_message.len() > max_lenth {
             return Err("Message max length exceeded");
         }
@@ -372,7 +389,10 @@ mod tests {
     fn test_escaped_message() {
         assert_matches!(EscapedMessage::new("valid message", 1000), Ok(_));
         assert_matches!(EscapedMessage::new("v@lid me$$age", 1000), Ok(_));
+        assert_matches!(EscapedMessage::new("Hello world!", 1000), Ok(s) if s.0.as_str() == "Hello world!");
         assert_matches!(EscapedMessage::new(r#""quoted_message""#, 1000), Ok(s) if s.0.as_str() == "\\\"quoted_message\\\"");
+        assert_matches!(EscapedMessage::new("nice work 🚀
+        Appreciated", 1000), Ok(s) if s.0.as_str() == "nice work \\\\ud83d\\\\ude80\\n        Appreciated");
         assert_matches!(EscapedMessage::new(&"b".repeat(32), 32), Ok(_));
         assert_matches!(EscapedMessage::new(&"a".repeat(32), 31), Err(_));
     }
