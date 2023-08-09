@@ -1,7 +1,7 @@
 use crate::external_db::ext_db;
 use crate::registry::TokenId;
 use crate::types::KudosId;
-use crate::{consts::*, EscapedMessage, Hashtag, KudosKind};
+use crate::{consts::*, Hashtag, KudosKind};
 use crate::{utils::*, WrappedCid};
 use crate::{Contract, ContractExt};
 use near_sdk::json_types::U128;
@@ -17,7 +17,7 @@ impl Contract {
         external_db_id: AccountId,
         receiver_id: AccountId,
         kind: KudosKind,
-        message: EscapedMessage,
+        message: String,
         icon_cid: Option<WrappedCid>,
         hashtags: Option<Vec<Hashtag>>,
         #[callback_result] callback_result: Result<Vec<(AccountId, Vec<TokenId>)>, PromiseError>,
