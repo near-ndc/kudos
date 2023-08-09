@@ -418,14 +418,6 @@ pub fn display_deposit_in_near(value: Balance) -> String {
     )
 }
 
-pub fn ensure_length(message: String, max_length: u64) -> Result<String, &'static str> {
-    if message.len() > max_length as usize {
-        return Err("Message max length exceeded");
-    }
-
-    return Ok(message);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
