@@ -1,11 +1,12 @@
-use kudos_contract::{CommentId, Commentary, EscapedMessage};
+use kudos_contract::{CommentId, Commentary};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{self, Deserialize};
+use near_sdk::serde_json::Value;
 use near_sdk::{serde_json, AccountId};
 
 #[derive(Debug, PartialEq)]
 pub struct CommentaryOwned {
-    pub message: EscapedMessage,
+    pub message: Value,
     pub sender_id: AccountId,
     pub timestamp: U64,
     pub parent_comment_id: Option<CommentId>,
@@ -58,7 +59,7 @@ impl<'de> Deserialize<'de> for CommentaryOwned {
 
                 Some(Self {
                     sender_id,
-                    message: EscapedMessage::new_unchecked(&message),
+                    message: Value::String(message.to_string()),
                     timestamp,
                     parent_comment_id,
                 })
