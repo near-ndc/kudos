@@ -76,11 +76,6 @@ impl Contract {
 
         let predecessor_account_id = env::predecessor_account_id();
         let sender_id = env::signer_account_id();
-        // User can't leave a comment for his kudos, but it can reply to other comments
-        require!(
-            receiver_id != sender_id || parent_comment_id.is_some(),
-            "User is not eligible to leave a comment for this kudos"
-        );
 
         let minimum_gas_requirement = LEAVE_COMMENT_RESERVED_GAS
             + IS_HUMAN_GAS

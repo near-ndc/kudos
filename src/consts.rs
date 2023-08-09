@@ -21,7 +21,7 @@ pub const PROOF_OF_KUDOS_SBT_CLASS_ID: u64 = 1;
 /// Required Ⓝ deposit to mint ProofOfKudos SBT by i-am-human-registry smart contract
 ///
 /// This value should be updated if mentioned contract will require different amount of deposit
-pub const PROOF_OF_KUDOS_SBT_MINT_COST: Balance = 7_510_000_000_000_000_000_000;
+pub const PROOF_OF_KUDOS_SBT_MINT_COST: Balance = 9_000_000_000_000_000_000_000;
 
 /// Required storage to memorise exchanged [`KudosId`] in [`LookupSet`] of this smart contract storage
 ///
