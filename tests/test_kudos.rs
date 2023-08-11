@@ -281,7 +281,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .as_str()
     );
-    assert_eq!(comment.message.as_str(), "amazing");
+    assert_eq!(comment.message, "amazing");
 
     // verify a reply comment
     let comment = Commentary::from(comments.get(&comment2_id).unwrap());
@@ -293,7 +293,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .as_str()
     );
-    assert_eq!(comment.message.as_str(), "wow");
+    assert_eq!(comment.message, "wow");
     assert_eq!(comment.parent_comment_id, Some(&comment1_id));
 
     // verify a reply comment
@@ -306,7 +306,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             .unwrap()
             .as_str()
     );
-    assert_eq!(comment.message.as_str(), "you are the best");
+    assert_eq!(comment.message, "you are the best");
     assert_eq!(comment.parent_comment_id, Some(&comment2_id));
 
     Ok(())

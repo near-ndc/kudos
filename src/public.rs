@@ -1,9 +1,10 @@
 use crate::registry::{ext_sbtreg, IS_HUMAN_GAS};
 use crate::settings::Settings;
 use crate::types::{Commentary, KudosId, KudosKind, WrappedCid};
-use crate::{consts::*, CommentId, EncodedCommentary, EscapedMessage};
+use crate::{consts::*, CommentId, EncodedCommentary};
 use crate::{utils::*, GIVE_KUDOS_COST};
 use crate::{Contract, ContractExt};
+use near_sdk::serde_json::Value;
 use near_sdk::{env, near_bindgen, require, AccountId, Promise};
 
 #[near_bindgen]
@@ -96,13 +97,13 @@ impl Contract {
             &display_deposit_requirement_in_near(LEAVE_COMMENT_COST)
         );
 
+        if message.len() > Settings::from(&self.settings).commentary_message_max_length  as usize {
+            return Err("Message max length exceeded".to_string());
+        }
         let external_db_id = self.external_db_id()?.clone();
         let comment = EncodedCommentary::try_from(&Commentary {
             sender_id: &sender_id,
-            message: &EscapedMessage::new(
-                &message,
-                Settings::from(&self.settings).commentary_message_max_length as usize,
-            )?,
+            message: &Value::String(message.to_string()),
             timestamp: env::block_timestamp_ms().into(),
             parent_comment_id: parent_comment_id.as_ref(),
         })?;
@@ -227,8 +228,9 @@ impl Contract {
         let settings = Settings::from(&self.settings);
         let kind = kind.unwrap_or_default();
         let hashtags = settings.validate_hashtags(hashtags.as_deref())?;
-        let message =
-            EscapedMessage::new(&message, settings.commentary_message_max_length as usize)?;
+        if message.len() > Settings::from(&self.settings).commentary_message_max_length  as usize {
+            return Err("Message max length exceeded");
+        }
 
         let external_db_id = self.external_db_id()?.clone();
 

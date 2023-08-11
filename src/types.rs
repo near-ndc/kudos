@@ -2,6 +2,7 @@ use cid::Cid;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
 use near_sdk::serde::{self, de, Deserialize, Deserializer, Serialize, Serializer};
+use near_sdk::serde_json::Value;
 use near_sdk::{serde_json, AccountId, BorshStorageKey};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -107,7 +108,7 @@ pub(crate) enum StorageKey {
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Commentary<'a> {
     /// A message with escaped characters to guarantee safety of stringification
-    pub message: &'a EscapedMessage,
+    pub message: &'a Value,
     /// A valid [`AccountId`] of a message sender
     pub sender_id: &'a AccountId,
     /// The timestamp in milliseconds when commentary message were prepared
@@ -122,7 +123,7 @@ pub struct Commentary<'a> {
 pub struct CommentaryRaw<'a> {
     /// A message with escaped characters to guarantee safety of stringification
     #[serde(rename = "m")]
-    pub message: &'a EscapedMessage,
+    pub message: &'a Value,
     /// A valid [`AccountId`] of a message sender
     #[serde(rename = "s")]
     pub sender_id: &'a AccountId,
@@ -179,59 +180,6 @@ impl Hashtag {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new_unchecked(hashtag: &str) -> Self {
         Self(hashtag.to_owned())
-    }
-}
-
-/// This type represents an escaped message [`String`] limited by maximum number of allowed characters for commentary message
-#[derive(Serialize, Deserialize)]
-#[cfg_attr(not(target_arch = "wasm32"), derive(PartialEq, Clone, Debug))]
-#[serde(crate = "near_sdk::serde")]
-pub struct EscapedMessage(String);
-
-// EscapeNonASCII
-/// Serialize all non-ASCII characters in strings with \uXXXX escapes
-/// Reference: https://github.com/serde-rs/json/issues/907
-fn escape_string(fragment: &str) -> String {
-    let mut result = String::new();
-    for ch in fragment.chars() {
-        if ch.is_ascii() {
-            result.push_str(ch.encode_utf8(&mut [0; 4]));
-        } else {
-            for escape in ch.encode_utf16(&mut [0; 2]) {
-                result.push_str(&format!("\\u{:04x}", escape));
-            }
-        }
-    }
-    result
-}
-
-impl EscapedMessage {
-    /// Creates [`EscapedMessage`] from ref string by escaping it's characters and checks the maximum length
-    pub fn new(message: &str, max_lenth: usize) -> Result<Self, &'static str> {
-        let mut escaped_message = escape_string(message);
-        escaped_message = escaped_message.escape_default().to_string();
-        if escaped_message.len() > max_lenth {
-            return Err("Message max length exceeded");
-        }
-
-        Ok(Self(escaped_message))
-    }
-
-    /// Creates [`EscapedMessage`] from ref string by escaping it's characters without length check
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn new_unchecked(message: &str) -> Self {
-        Self(message.escape_default().to_string())
-    }
-
-    /// Return [`str`] representation of this [`EscapedMessage`]
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl Display for EscapedMessage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
     }
 }
 
@@ -343,16 +291,16 @@ impl Display for KudosKind {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CommentId, Commentary, EncodedCommentary, EscapedMessage, Hashtag, WrappedCid};
-    use assert_matches::assert_matches;
+    use crate::{CommentId, Commentary, EncodedCommentary, Hashtag, WrappedCid};
     use near_sdk::json_types::U64;
     use near_sdk::AccountId;
+    use near_sdk::serde_json::Value;
 
     #[test]
     fn test_commentary_encoding() {
         let comment = EncodedCommentary::try_from(&Commentary {
             sender_id: &AccountId::new_unchecked("user.near".to_owned()),
-            message: &EscapedMessage::new("commentary test", 1000).unwrap(),
+            message: &Value::String("commentary test".to_string()),
             timestamp: U64(1234567890),
             parent_comment_id: None,
         })
@@ -364,7 +312,7 @@ mod tests {
 
         let comment = EncodedCommentary::try_from(&Commentary {
             sender_id: &AccountId::new_unchecked("user.near".to_owned()),
-            message: &EscapedMessage::new("commentary test", 1000).unwrap(),
+            message: &Value::String("commentary test".to_string()),
             timestamp: U64(1234567890),
             parent_comment_id: Some(&CommentId::new_unchecked(1u64)),
         })
@@ -383,18 +331,6 @@ mod tests {
         assert!(Hashtag::new("invalid+hashtag", 32).is_err());
         assert!(Hashtag::new("invalidha$ht@g", 32).is_err());
         assert!(Hashtag::new("toolonghashtag", 8).is_err());
-    }
-
-    #[test]
-    fn test_escaped_message() {
-        assert_matches!(EscapedMessage::new("valid message", 1000), Ok(_));
-        assert_matches!(EscapedMessage::new("v@lid me$$age", 1000), Ok(_));
-        assert_matches!(EscapedMessage::new("Hello world!", 1000), Ok(s) if s.0.as_str() == "Hello world!");
-        assert_matches!(EscapedMessage::new(r#""quoted_message""#, 1000), Ok(s) if s.0.as_str() == "\\\"quoted_message\\\"");
-        assert_matches!(EscapedMessage::new("nice work 🚀
-        Appreciated", 1000), Ok(s) if s.0.as_str() == "nice work \\\\ud83d\\\\ude80\\n        Appreciated");
-        assert_matches!(EscapedMessage::new(&"b".repeat(32), 32), Ok(_));
-        assert_matches!(EscapedMessage::new(&"a".repeat(32), 31), Err(_));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use crate::consts::PROOF_OF_KUDOS_SBT_CLASS_ID;
 use crate::registry::TokenMetadata;
 use crate::types::KudosId;
-use crate::{CommentId, EncodedCommentary, EscapedMessage, Hashtag, KudosKind, WrappedCid};
+use crate::{CommentId, EncodedCommentary, Hashtag, KudosKind, WrappedCid};
 use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::{AccountId, Balance, Gas};
@@ -131,7 +131,7 @@ pub fn build_give_kudos_request(
     kudos_id: &KudosId,
     created_at: u64,
     kind: KudosKind,
-    message: &EscapedMessage,
+    message: &str,
     icon_cid: Option<&WrappedCid>,
     hashtags: Option<&[Hashtag]>,
 ) -> Result<Value, &'static str> {
@@ -139,6 +139,7 @@ pub fn build_give_kudos_request(
     let hashtags_with_kudos = build_hashtags(receiver_id, kudos_id, hashtags)?;
     let icon_cid = icon_cid.map(|cid| cid.to_string()).unwrap_or_default();
 
+    let mes = near_sdk::serde_json::Value::String(message.to_string());
     serde_json::from_str::<Value>(&format!(
         r#"{{
           "{root_id}": {{
@@ -148,7 +149,7 @@ pub fn build_give_kudos_request(
                   "created_at": "{created_at}",
                   "sender_id": "{sender_id}",
                   "kind": "{kind}",
-                  "message": "{message}",
+                  "message": {mes},
                   "icon": "{icon_cid}",
                   "upvotes": {{}},
                   "comments": {{}},
@@ -484,7 +485,8 @@ mod tests {
         let sender_id = AccountId::new_unchecked("test1.near".to_owned());
         let receiver_id = AccountId::new_unchecked("test2.near".to_owned());
         let next_kudos_id = KudosId::from(IncrementalUniqueId::default().next());
-        let message = EscapedMessage::new(r#""a","b":{"t":"multi\nline"},"#, 1000).unwrap();
+        //let message = EscapedMessage::new(r#""a","b":{"t":"multi\nline"},"#, 1000).unwrap();
+        let message = r#""a","b":{"t":"multi\nline"},"#;
         let icon_cid =
             WrappedCid::new("bafybeigrf2dwtpjkiovnigysyto3d55opf6qkdikx6d65onrqnfzwgdkfa").unwrap();
 
@@ -573,7 +575,7 @@ mod tests {
                 &comment_id,
                 &EncodedCommentary::try_from(&Commentary {
                     sender_id: &sender_id,
-                    message: &EscapedMessage::new("some commentary text", 1000).unwrap(),
+                    message: &Value::String("some commentary text".to_string()),
                     timestamp: U64(1234567890),
                     parent_comment_id: None,
                 })
