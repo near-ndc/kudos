@@ -146,7 +146,7 @@ fn test_on_pok_sbt_mint() {
         .build();
 
     let mut kudos_contract = Contract::init(
-        Some(contract_id.clone()),
+        Some(contract_id),
         AccountId::new_unchecked("iah_registry.near".to_owned()),
     );
 

@@ -77,7 +77,7 @@ async fn test_required_deposit() -> anyhow::Result<()> {
     )
     .await?;
 
-    let _ = set_external_db(kudos_contract.id(), &admin_account, &near_social).await?;
+    set_external_db(kudos_contract.id(), &admin_account, &near_social).await?;
 
     // Register users' accounts
     let test1_account =
@@ -96,7 +96,7 @@ async fn test_required_deposit() -> anyhow::Result<()> {
     let minted_tokens = mint_fv_sbt(
         &iah_registry_id,
         &admin_account,
-        &vec![test1_account.id(), test2_account.id(), test3_account.id()],
+        &[test1_account.id(), test2_account.id(), test3_account.id()],
         now_ms,
         now_ms + 86_400_000,
     )
@@ -104,7 +104,7 @@ async fn test_required_deposit() -> anyhow::Result<()> {
     assert!(verify_is_human(
         &iah_registry_id,
         admin_account.id(),
-        &vec![&test1_account, &test2_account, &test3_account],
+        &[&test1_account, &test2_account, &test3_account],
         &minted_tokens
     )
     .await

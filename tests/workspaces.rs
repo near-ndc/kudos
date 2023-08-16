@@ -26,7 +26,7 @@ pub async fn transfer_near(
 ) -> anyhow::Result<ExecutionSuccess> {
     Ok(worker
         .root_account()?
-        .transfer_near(&account_id, deposit)
+        .transfer_near(account_id, deposit)
         .await?
         .into_result()?)
 }

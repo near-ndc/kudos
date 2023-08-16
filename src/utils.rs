@@ -451,11 +451,9 @@ mod tests {
         let json_text = super::build_hashtags(
             &receiver_id,
             &next_kudos_id,
-            Some(&vec![
-                Hashtag::new("hashtaga", 32).unwrap(),
+            Some(&[Hashtag::new("hashtaga", 32).unwrap(),
                 Hashtag::new("hashtagb", 32).unwrap(),
-                Hashtag::new("hashtagc", 32).unwrap(),
-            ]),
+                Hashtag::new("hashtagc", 32).unwrap()]),
         )
         .unwrap();
 
@@ -498,7 +496,7 @@ mod tests {
                 &next_kudos_id,
                 1234567890u64,
                 KudosKind::Kudos,
-                &message,
+                message,
                 Some(&icon_cid),
                 Some(&[
                     Hashtag::new("abc", 32).unwrap(),
@@ -522,7 +520,7 @@ mod tests {
                 &next_kudos_id,
                 1234567890u64,
                 KudosKind::Ding,
-                &message,
+                message,
                 None,
                 Some(&[
                     Hashtag::new("abc", 32).unwrap(),

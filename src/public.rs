@@ -103,7 +103,7 @@ impl Contract {
         let external_db_id = self.external_db_id()?.clone();
         let comment = EncodedCommentary::try_from(&Commentary {
             sender_id: &sender_id,
-            message: &Value::String(message.to_string()),
+            message: &Value::String(message),
             timestamp: env::block_timestamp_ms().into(),
             parent_comment_id: parent_comment_id.as_ref(),
         })?;

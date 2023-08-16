@@ -81,7 +81,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     )
     .await?;
 
-    let _ = set_external_db(
+    set_external_db(
         kudos_contract.id(),
         kudos_contract.as_account(),
         &near_social,
@@ -104,7 +104,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     let minted_tokens: Vec<u64> = mint_fv_sbt(
         &iah_registry_id,
         &admin_account,
-        &vec![user1_account.id(), user2_account.id(), user3_account.id()],
+        &[user1_account.id(), user2_account.id(), user3_account.id()],
         now_ms,
         now_ms + 86_400_000,
     )
@@ -112,7 +112,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     assert!(verify_is_human(
         &iah_registry_id,
         admin_account.id(),
-        &vec![&user1_account, &user2_account, &user3_account],
+        &[&user1_account, &user2_account, &user3_account],
         &minted_tokens
     )
     .await
@@ -125,7 +125,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
         kudos_contract.id(),
         &user1_account,
         user2_account.id(),
-        &kudos_message,
+        kudos_message,
         Some(
             &WrappedCid::new("bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")
                 .unwrap(),
@@ -151,7 +151,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     // remove `created_at` nested key to be able compare with static stringified json and verify that removed key were exist
     assert!(remove_key_from_json(
         &mut kudos_data,
-        &get_kudos_by_id_req.replace("*", "created_at")
+        &get_kudos_by_id_req.replace('*', "created_at")
     )
     .is_some());
     let extracted_hashtags = remove_key_from_json(
@@ -172,8 +172,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
             user1_account.id(),
             serde_json::to_string(&hashtags)
                 .unwrap()
-                .escape_default()
-                .to_string(),
+                .escape_default(),
         )
     );
 
@@ -190,7 +189,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     let mut kudos_data: near_sdk::serde_json::Value = user2_account
         .view(&near_social_id, "get")
         .args_json(json!({
-            "keys": [get_kudos_by_id_req.replace("*", "upvotes/**")]
+            "keys": [get_kudos_by_id_req.replace('*', "upvotes/**")]
         }))
         .await?
         .json()?;
@@ -198,7 +197,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     // remove `/upvotes` nested key and check for it's value, which should contain User3 who upvoted kudos
     let upvotes_json = remove_key_from_json(
         &mut kudos_data,
-        &get_kudos_by_id_req.replace("*", "upvotes"),
+        &get_kudos_by_id_req.replace('*', "upvotes"),
     )
     .unwrap()
     .to_string();
@@ -257,7 +256,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     let mut kudos_data: near_sdk::serde_json::Value = user2_account
         .view(&near_social_id, "get")
         .args_json(json!({
-            "keys": [get_kudos_by_id_req.replace("*", "comments/**")]
+            "keys": [get_kudos_by_id_req.replace('*', "comments/**")]
         }))
         .await?
         .json()?;
@@ -265,7 +264,7 @@ async fn test_give_kudos() -> anyhow::Result<()> {
     // remove `/comments` nested key and check for it's value, which should contain User3 who left a comment and a message for kudos
     let comments_json = remove_key_from_json(
         &mut kudos_data,
-        &get_kudos_by_id_req.replace("*", "comments"),
+        &get_kudos_by_id_req.replace('*', "comments"),
     )
     .unwrap();
     let comments =
@@ -352,7 +351,7 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
     )
     .await?;
 
-    let _ = set_external_db(
+    set_external_db(
         kudos_contract.id(),
         kudos_contract.as_account(),
         &near_social,
@@ -418,13 +417,11 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
     let _ = mint_fv_sbt(
         &iah_registry_id,
         &admin_account,
-        &vec![
-            user1_account.id(),
+        &[user1_account.id(),
             user2_account.id(),
             user3_account.id(),
             user4_account.id(),
-            user5_account.id(),
-        ],
+            user5_account.id()],
         now_ms,
         now_ms + 86_400_000,
     )
@@ -472,7 +469,7 @@ async fn test_mint_proof_of_kudos_sbt() -> anyhow::Result<()> {
     let tokens_ids = exchange_kudos_for_sbt(kudos_contract.id(), &user1_account, &kudos_id).await?;
     assert_eq!(tokens_ids, vec![PROOF_OF_KUDOS_SBT_CLASS_ID]);
 
-    let _ = verify_kudos_sbt_tokens_by_owner(
+    verify_kudos_sbt_tokens_by_owner(
         &iah_registry_id,
         kudos_contract.id(),
         &user1_account,
@@ -551,7 +548,7 @@ async fn test_mass_give_kudos() -> anyhow::Result<()> {
     )
     .await?;
 
-    let _ = set_external_db(
+    set_external_db(
         kudos_contract.id(),
         kudos_contract.as_account(),
         &near_social,
@@ -591,7 +588,7 @@ async fn test_mass_give_kudos() -> anyhow::Result<()> {
         let kudos_message = "amazing message".repeat(32);
         let kudos_id = give_kudos(
             kudos_contract.id(),
-            &user_account,
+            user_account,
             users_accounts.first().unwrap().id(),
             &kudos_message,
             None,
