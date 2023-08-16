@@ -38,13 +38,10 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
       - name: Build
         if: env.GIT_DIFF
-        working-directory: ./
         run: make build
       - name: Clippy
         if: env.GIT_DIFF
-        working-directory: ./
         run: cargo clippy
       - name: Run tests
         if: env.GIT_DIFF
-        working-directory: ./
         run: cargo test --verbose
