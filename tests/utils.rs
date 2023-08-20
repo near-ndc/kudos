@@ -20,7 +20,7 @@ pub async fn mint_fv_sbt(
     let res = issuer
         .call(iah_registry_id, "sbt_mint")
         .args_json(json!({
-          "token_spec": receivers.into_iter().map(|receiver_id| (receiver_id, [
+          "token_spec": receivers.iter().map(|receiver_id| (receiver_id, [
               TokenMetadata {
                   class: 1, // FV SBT
                   issued_at: Some(issued_at),
@@ -60,9 +60,9 @@ pub async fn verify_is_human(
     users_accounts: &[&workspaces::Account],
     tokens: &Vec<u64>,
 ) -> anyhow::Result<()> {
-    for (i, &user_account) in users_accounts.into_iter().enumerate() {
+    for (i, &user_account) in users_accounts.iter().enumerate() {
         let res = user_account
-            .view(&iah_registry_id, "is_human")
+            .view(iah_registry_id, "is_human")
             .args_json(json!({
               "account": user_account.id()
             }))
@@ -93,7 +93,7 @@ pub async fn verify_kudos_sbt_tokens_by_owner(
     tokens_ids: &[u64],
 ) -> anyhow::Result<()> {
     let res = owner
-        .view(&iah_registry_id, "sbt_tokens_by_owner")
+        .view(iah_registry_id, "sbt_tokens_by_owner")
         .args_json(json!({
           "account": owner.id(),
           "issuer": issuer_id,
@@ -106,7 +106,7 @@ pub async fn verify_kudos_sbt_tokens_by_owner(
             if issuer_id_result.as_str() != issuer_id.as_str()
                 && compare_slices(
                     &tokens_result
-                        .into_iter()
+                        .iter()
                         .map(|token_res| token_res.token)
                         .collect::<Vec<_>>(),
                     tokens_ids,

@@ -59,7 +59,7 @@ impl<'de> Deserialize<'de> for CommentaryOwned {
 
                 Some(Self {
                     sender_id,
-                    message: Value::String(message.to_string()),
+                    message: Value::String(message),
                     timestamp,
                     parent_comment_id,
                 })

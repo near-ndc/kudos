@@ -149,7 +149,7 @@ async fn test_social_db_required_deposit() -> anyhow::Result<()> {
         display_deposit_in_near(required_deposit_for_grant_write_permission)
     );
 
-    let _ = set_external_db(kudos_contract.id(), &admin_account, &near_social).await?;
+    set_external_db(kudos_contract.id(), &admin_account, &near_social).await?;
 
     let StorageBalance {
         total: U128(kudos_contract_total),
@@ -173,8 +173,7 @@ async fn test_social_db_required_deposit() -> anyhow::Result<()> {
         gen_user_account(&worker, &[&"x".repeat(54), ".test.near"].concat()).await?;
     let _ = transfer_near(&worker, fake_iah_registry.id(), parse_near!("5 N")).await?;
 
-    let _ =
-        update_iah_registry(kudos_contract.id(), &admin_account, fake_iah_registry.id()).await?;
+    update_iah_registry(kudos_contract.id(), &admin_account, fake_iah_registry.id()).await?;
 
     let StorageBalance {
         total: U128(kudos_contract_total_after_iah_update),

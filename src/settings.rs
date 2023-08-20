@@ -175,7 +175,7 @@ mod tests {
     fn test_validate_hashtags() {
         let settings = Settings::default();
         assert_matches!(settings.validate_hashtags(None), Ok(None));
-        assert_matches!(settings.validate_hashtags(Some(&vec![])), Ok(_));
+        assert_matches!(settings.validate_hashtags(Some(&[])), Ok(_));
         assert_eq!(
             settings.validate_hashtags(Some(vec!["abc".to_owned(), "1Def".to_owned()].as_slice())),
             Ok(Some(vec![
@@ -188,7 +188,7 @@ mod tests {
             Err(_)
         );
         assert_matches!(
-            settings.validate_hashtags(Some(vec!["a".repeat(33).to_owned()].as_slice())),
+            settings.validate_hashtags(Some(vec!["a".repeat(33)].as_slice())),
             Err(_)
         );
     }
