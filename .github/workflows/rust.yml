@@ -25,7 +25,7 @@ jobs:
           PATTERNS: |
             **/**.rs
             contracts/Cargo.lock
-      - name: Install latest nightly
+      - name: Install Rust
         if: env.GIT_DIFF
         uses: actions-rs/toolchain@v1
         with:
